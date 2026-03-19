@@ -1,16 +1,42 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import healthRouter from "./health";
 import authRouter from "./auth";
-// requireAuth is exported for use in protected routers
-// import { requireAuth } from "../middlewares/requireAuth";
+import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
-// Public routes (auth + health — no auth required)
+// Public allowlist — these paths do NOT require authentication.
+// All paths are relative to /api.
+const PUBLIC_PATHS = new Set([
+  "/health",
+  "/auth/me",
+  "/auth/user",
+  "/auth/setup-status",
+  "/auth/claim-admin",
+  "/login",
+  "/callback",
+  "/logout",
+  "/mobile-auth/token-exchange",
+  "/mobile-auth/logout",
+]);
+
+function isPublicPath(path: string): boolean {
+  // Strip query string
+  const pathname = path.split("?")[0];
+  return PUBLIC_PATHS.has(pathname);
+}
+
+// Global auth guard: deny unauthenticated requests to all non-public paths.
+router.use((req: Request, res: Response, next: NextFunction) => {
+  if (isPublicPath(req.path)) {
+    next();
+    return;
+  }
+  requireAuth(req, res, next);
+});
+
+// Route handlers (must match allowlist above for public routes)
 router.use(healthRouter);
 router.use(authRouter);
-
-// Protected routes go below — all must use requireAuth middleware.
-// Example: router.use("/data", requireAuth, dataRouter);
 
 export default router;

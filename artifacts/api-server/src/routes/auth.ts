@@ -1,4 +1,5 @@
 import * as oidc from "openid-client";
+import { randomBytes } from "crypto";
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
   GetCurrentAuthUserResponse,
@@ -22,6 +23,8 @@ import {
 
 const OIDC_COOKIE_TTL = 10 * 60 * 1000;
 const ADMIN_CONFIG_KEY = "admin_user_id";
+const SETUP_TOKEN_KEY = "setup_token";
+const SETUP_TOKEN_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 const router: IRouter = Router();
 
@@ -53,14 +56,18 @@ function setOidcCookie(res: Response, name: string, value: string) {
 }
 
 function getSafeReturnTo(value: unknown): string {
-  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) {
+  if (
+    typeof value !== "string" ||
+    !value.startsWith("/") ||
+    value.startsWith("//")
+  ) {
     return "/";
   }
   return value;
 }
 
 async function getAdminUserId(): Promise<string | null> {
-  // Check env var first (takes precedence over DB for easy override)
+  // Env var takes precedence over DB for easy override
   if (process.env.ADMIN_USER_ID) {
     return process.env.ADMIN_USER_ID;
   }
@@ -102,7 +109,19 @@ async function upsertUser(claims: Record<string, unknown>) {
   return user;
 }
 
-// Returns the current auth user (null if not authenticated)
+// ──────────────────────────────────────────────
+// Auth user endpoints — public (no requireAuth)
+// ──────────────────────────────────────────────
+
+// /api/auth/me and /api/auth/user are aliases — both return current user
+router.get("/auth/me", (req: Request, res: Response) => {
+  res.json(
+    GetCurrentAuthUserResponse.parse({
+      user: req.isAuthenticated() ? req.user : null,
+    }),
+  );
+});
+
 router.get("/auth/user", (req: Request, res: Response) => {
   res.json(
     GetCurrentAuthUserResponse.parse({
@@ -117,31 +136,99 @@ router.get("/auth/setup-status", async (_req: Request, res: Response) => {
   res.json({ configured: !!adminId });
 });
 
-// One-time claim: the first authenticated Replit user to call this becomes the admin.
-// Subsequent calls are rejected once the admin is set.
+// ──────────────────────────────────────────────
+// First-time setup: claim admin via one-time token
+// ──────────────────────────────────────────────
+//
+// Flow:
+//   1. User visits the app and clicks "Authenticate via Replit"
+//   2. They go through OIDC → /callback
+//   3. Callback sees no admin configured → generates a signed setup token
+//      stored in DB and redirects to /?setup=pending&token=<tok>&uid=<uid>
+//   4. Frontend shows setup page with "Claim ownership" button
+//   5. POST /api/auth/claim-admin?token=<tok> validates token, writes admin ID, returns session
+//
 router.post("/auth/claim-admin", async (req: Request, res: Response) => {
-  if (!req.isAuthenticated()) {
-    res.status(401).json({ error: "Must be authenticated to claim admin." });
-    return;
-  }
-
   const existingAdmin = await getAdminUserId();
   if (existingAdmin) {
     res.status(403).json({ error: "Admin is already configured." });
     return;
   }
 
-  const userId = req.user!.id;
+  const token = (req.query.token as string) || (req.body?.token as string);
+  const uid = (req.query.uid as string) || (req.body?.uid as string);
+
+  if (!token || !uid) {
+    res.status(400).json({ error: "Missing token or uid." });
+    return;
+  }
+
+  // Validate the one-time setup token from DB
+  const [row] = await db
+    .select()
+    .from(siteConfigTable)
+    .where(eq(siteConfigTable.key, SETUP_TOKEN_KEY));
+
+  if (!row) {
+    res.status(403).json({ error: "No setup token found. Please log in again." });
+    return;
+  }
+
+  // Token format: "<token>:<uid>:<expires_ms>"
+  const parts = row.value.split(":");
+  if (parts.length !== 3) {
+    res.status(403).json({ error: "Invalid setup token format." });
+    return;
+  }
+  const [storedToken, storedUid, expiresStr] = parts;
+
+  if (
+    storedToken !== token ||
+    storedUid !== uid ||
+    Date.now() > parseInt(expiresStr, 10)
+  ) {
+    res.status(403).json({ error: "Invalid or expired setup token." });
+    return;
+  }
+
+  // Token valid — store admin user ID and clean up setup token
   await db
     .insert(siteConfigTable)
-    .values({ key: ADMIN_CONFIG_KEY, value: userId })
+    .values({ key: ADMIN_CONFIG_KEY, value: uid })
     .onConflictDoUpdate({
       target: siteConfigTable.key,
-      set: { value: userId },
+      set: { value: uid },
     });
 
-  res.json({ success: true, adminUserId: userId });
+  await db
+    .delete(siteConfigTable)
+    .where(eq(siteConfigTable.key, SETUP_TOKEN_KEY));
+
+  // Upsert user record so we can create a session
+  const dbUser = await upsertUser({ sub: uid });
+
+  const sessionData: SessionData = {
+    user: {
+      id: dbUser.id,
+      email: dbUser.email,
+      firstName: dbUser.firstName,
+      lastName: dbUser.lastName,
+      profileImageUrl: dbUser.profileImageUrl,
+    },
+    access_token: undefined,
+    refresh_token: undefined,
+    expires_at: undefined,
+  };
+
+  const sid = await createSession(sessionData);
+  setSessionCookie(res, sid);
+
+  res.json({ success: true, adminUserId: uid });
 });
+
+// ──────────────────────────────────────────────
+// Standard OIDC login / callback / logout
+// ──────────────────────────────────────────────
 
 router.get("/login", async (req: Request, res: Response) => {
   const config = await getOidcConfig();
@@ -220,9 +307,26 @@ router.get("/callback", async (req: Request, res: Response) => {
   const userId = claims.sub as string;
 
   const adminId = await getAdminUserId();
+
   if (!adminId) {
-    // No admin configured yet — redirect to setup flow on the frontend
-    res.redirect("/?setup=pending&uid=" + encodeURIComponent(userId));
+    // No admin yet — generate a one-time setup token so the user can claim admin.
+    const setupToken = randomBytes(32).toString("hex");
+    const expires = Date.now() + SETUP_TOKEN_TTL_MS;
+    const tokenValue = `${setupToken}:${userId}:${expires}`;
+
+    await db
+      .insert(siteConfigTable)
+      .values({ key: SETUP_TOKEN_KEY, value: tokenValue })
+      .onConflictDoUpdate({
+        target: siteConfigTable.key,
+        set: { value: tokenValue },
+      });
+
+    const setupUrl = new URL("/", getOrigin(req));
+    setupUrl.searchParams.set("setup", "pending");
+    setupUrl.searchParams.set("token", setupToken);
+    setupUrl.searchParams.set("uid", userId);
+    res.redirect(setupUrl.toString());
     return;
   }
 
@@ -269,6 +373,10 @@ router.get("/logout", async (req: Request, res: Response) => {
   res.redirect(endSessionUrl.href);
 });
 
+// ──────────────────────────────────────────────
+// Mobile auth (Expo)
+// ──────────────────────────────────────────────
+
 router.post(
   "/mobile-auth/token-exchange",
   async (req: Request, res: Response) => {
@@ -305,7 +413,9 @@ router.post(
 
       const adminId = await getAdminUserId();
       if (!adminId) {
-        res.status(403).json({ error: "BenAdmin is not configured. Complete the web setup first." });
+        res.status(403).json({
+          error: "BenAdmin is not configured. Complete the web setup first.",
+        });
         return;
       }
 

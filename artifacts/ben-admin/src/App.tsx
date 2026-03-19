@@ -39,17 +39,6 @@ function ProtectedRoutes() {
   );
 }
 
-function SetupGuard() {
-  const search = useSearch();
-  const params = new URLSearchParams(search);
-  const isSetupPending = params.get("setup") === "pending";
-
-  if (isSetupPending) {
-    return <Setup onClaimed={() => { window.location.href = "/"; }} />;
-  }
-  return null;
-}
-
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
   const search = useSearch();
@@ -61,7 +50,17 @@ function Router() {
   }
 
   if (isSetupPending) {
-    return <Setup onClaimed={() => { window.location.href = "/"; }} />;
+    const token = params.get("token") ?? "";
+    const uid = params.get("uid") ?? "";
+    return (
+      <Setup
+        token={token}
+        uid={uid}
+        onClaimed={() => {
+          window.location.href = "/";
+        }}
+      />
+    );
   }
 
   return (

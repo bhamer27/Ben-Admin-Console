@@ -4,20 +4,25 @@ import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 
 interface SetupProps {
+  token: string;
+  uid: string;
   onClaimed: () => void;
 }
 
-export default function Setup({ onClaimed }: SetupProps) {
+export default function Setup({ token, uid, onClaimed }: SetupProps) {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
 
   async function claimAdmin() {
     setStatus("loading");
     try {
-      const res = await fetch("/api/auth/claim-admin", {
-        method: "POST",
-        credentials: "include",
-      });
+      const res = await fetch(
+        `/api/auth/claim-admin?token=${encodeURIComponent(token)}&uid=${encodeURIComponent(uid)}`,
+        {
+          method: "POST",
+          credentials: "include",
+        },
+      );
       if (res.ok) {
         setStatus("success");
         setTimeout(() => {
@@ -83,7 +88,7 @@ export default function Setup({ onClaimed }: SetupProps) {
               )}
 
               <p className="text-xs text-muted-foreground/60 px-2">
-                This can only be done once. After you claim ownership, no other account will be able to access BenAdmin.
+                This can only be done once. After you claim ownership, no other account can access BenAdmin.
               </p>
             </>
           )}
