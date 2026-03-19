@@ -63,14 +63,25 @@ function Router() {
     );
   }
 
+  if (!isAuthenticated) {
+    // Unauthenticated: allow /login, redirect everything else to login
+    return (
+      <Switch>
+        <Route path="/login" component={Login} />
+        <Route>
+          <Redirect to="/login" />
+        </Route>
+      </Switch>
+    );
+  }
+
   return (
     <Switch>
       <Route path="/login">
-        {isAuthenticated ? <Redirect to="/overview" /> : <Login />}
+        <Redirect to="/overview" />
       </Route>
-
-      <Route path="/.*">
-        {!isAuthenticated ? <Redirect to="/login" /> : <ProtectedRoutes />}
+      <Route>
+        <ProtectedRoutes />
       </Route>
     </Switch>
   );
