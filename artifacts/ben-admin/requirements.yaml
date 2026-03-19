@@ -1,0 +1,13 @@
+packages:
+  "framer-motion": "Page transitions and smooth UI interactions"
+  "clsx": "Utility for constructing className strings conditionally"
+  "tailwind-merge": "Utility function to efficiently merge Tailwind CSS classes"
+
+images:
+  - path: "artifacts/ben-admin/public/images/login-bg.png"
+    description: "Dark, abstract, professional geometric mesh background with subtle deep slate and indigo gradients, minimalistic, very dark, 8k resolution"
+    aspect_ratio: "16:9"
+
+notes:
+  - The app uses Replit Auth (OIDC) from @workspace/replit-auth-web.
+  - The frontend expects dark mode by default.
