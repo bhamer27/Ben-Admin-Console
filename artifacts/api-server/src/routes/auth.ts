@@ -6,7 +6,8 @@ import {
   ExchangeMobileAuthorizationCodeResponse,
   LogoutMobileSessionResponse,
 } from "@workspace/api-zod";
-import { db, usersTable } from "@workspace/db";
+import { db, usersTable, siteConfigTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import {
   clearSession,
   getOidcConfig,
@@ -20,6 +21,7 @@ import {
 } from "../lib/auth";
 
 const OIDC_COOKIE_TTL = 10 * 60 * 1000;
+const ADMIN_CONFIG_KEY = "admin_user_id";
 
 const router: IRouter = Router();
 
@@ -57,12 +59,21 @@ function getSafeReturnTo(value: unknown): string {
   return value;
 }
 
-function isOwner(userId: string): boolean {
-  const adminId = process.env.ADMIN_USER_ID;
-  if (!adminId) {
-    // If not set, first login sets it automatically (see callback)
-    return true;
+async function getAdminUserId(): Promise<string | null> {
+  // Check env var first (takes precedence over DB for easy override)
+  if (process.env.ADMIN_USER_ID) {
+    return process.env.ADMIN_USER_ID;
   }
+  const [row] = await db
+    .select()
+    .from(siteConfigTable)
+    .where(eq(siteConfigTable.key, ADMIN_CONFIG_KEY));
+  return row?.value ?? null;
+}
+
+async function isOwner(userId: string): Promise<boolean> {
+  const adminId = await getAdminUserId();
+  if (!adminId) return false;
   return userId === adminId;
 }
 
@@ -91,12 +102,45 @@ async function upsertUser(claims: Record<string, unknown>) {
   return user;
 }
 
+// Returns the current auth user (null if not authenticated)
 router.get("/auth/user", (req: Request, res: Response) => {
   res.json(
     GetCurrentAuthUserResponse.parse({
       user: req.isAuthenticated() ? req.user : null,
     }),
   );
+});
+
+// Returns whether the admin user has been configured
+router.get("/auth/setup-status", async (_req: Request, res: Response) => {
+  const adminId = await getAdminUserId();
+  res.json({ configured: !!adminId });
+});
+
+// One-time claim: the first authenticated Replit user to call this becomes the admin.
+// Subsequent calls are rejected once the admin is set.
+router.post("/auth/claim-admin", async (req: Request, res: Response) => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Must be authenticated to claim admin." });
+    return;
+  }
+
+  const existingAdmin = await getAdminUserId();
+  if (existingAdmin) {
+    res.status(403).json({ error: "Admin is already configured." });
+    return;
+  }
+
+  const userId = req.user!.id;
+  await db
+    .insert(siteConfigTable)
+    .values({ key: ADMIN_CONFIG_KEY, value: userId })
+    .onConflictDoUpdate({
+      target: siteConfigTable.key,
+      set: { value: userId },
+    });
+
+  res.json({ success: true, adminUserId: userId });
 });
 
 router.get("/login", async (req: Request, res: Response) => {
@@ -175,7 +219,14 @@ router.get("/callback", async (req: Request, res: Response) => {
 
   const userId = claims.sub as string;
 
-  if (!isOwner(userId)) {
+  const adminId = await getAdminUserId();
+  if (!adminId) {
+    // No admin configured yet — redirect to setup flow on the frontend
+    res.redirect("/?setup=pending&uid=" + encodeURIComponent(userId));
+    return;
+  }
+
+  if (!(await isOwner(userId))) {
     res.status(403).send("Access denied. This console is private.");
     return;
   }
@@ -247,6 +298,19 @@ router.post(
       const claims = tokens.claims();
       if (!claims) {
         res.status(401).json({ error: "No claims in ID token" });
+        return;
+      }
+
+      const userId = claims.sub as string;
+
+      const adminId = await getAdminUserId();
+      if (!adminId) {
+        res.status(403).json({ error: "BenAdmin is not configured. Complete the web setup first." });
+        return;
+      }
+
+      if (!(await isOwner(userId))) {
+        res.status(403).json({ error: "Access denied." });
         return;
       }
 

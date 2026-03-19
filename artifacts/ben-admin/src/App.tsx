@@ -1,17 +1,15 @@
-import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect, useSearch } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-// Auth
 import { useAuth } from "@workspace/replit-auth-web";
 
-// Layout
 import { Shell } from "@/components/layout/Shell";
 
-// Pages
 import LoadingScreen from "@/pages/LoadingScreen";
 import Login from "@/pages/Login";
+import Setup from "@/pages/Setup";
 import Overview from "@/pages/Overview";
 import Replit from "@/pages/Replit";
 import Stripe from "@/pages/Stripe";
@@ -24,7 +22,7 @@ const queryClient = new QueryClient();
 
 function ProtectedRoutes() {
   const { user, logout } = useAuth();
-  
+
   return (
     <Shell user={user} logout={logout}>
       <Switch>
@@ -41,11 +39,29 @@ function ProtectedRoutes() {
   );
 }
 
+function SetupGuard() {
+  const search = useSearch();
+  const params = new URLSearchParams(search);
+  const isSetupPending = params.get("setup") === "pending";
+
+  if (isSetupPending) {
+    return <Setup onClaimed={() => { window.location.href = "/"; }} />;
+  }
+  return null;
+}
+
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
+  const search = useSearch();
+  const params = new URLSearchParams(search);
+  const isSetupPending = params.get("setup") === "pending";
 
   if (isLoading) {
     return <LoadingScreen />;
+  }
+
+  if (isSetupPending) {
+    return <Setup onClaimed={() => { window.location.href = "/"; }} />;
   }
 
   return (
@@ -53,7 +69,7 @@ function Router() {
       <Route path="/login">
         {isAuthenticated ? <Redirect to="/overview" /> : <Login />}
       </Route>
-      
+
       <Route path="/.*">
         {!isAuthenticated ? <Redirect to="/login" /> : <ProtectedRoutes />}
       </Route>
