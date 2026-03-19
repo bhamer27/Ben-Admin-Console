@@ -8,7 +8,7 @@ const router: IRouter = Router();
 // Public allowlist — these paths do NOT require authentication.
 // All paths are relative to /api.
 const PUBLIC_PATHS = new Set([
-  "/health",
+  "/healthz",
   "/auth/me",
   "/auth/user",
   "/auth/setup-status",

@@ -26,11 +26,26 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
-  /auth/user:
+  /auth/me:
     get:
       tags: [Auth]
       operationId: getCurrentAuthUser
       summary: Get the currently authenticated user
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+      responses:
+        '200':
+          description: Auth status resolved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthUserEnvelope'
+  /auth/user:
+    get:
+      tags: [Auth]
+      operationId: getCurrentAuthUserAlias
+      summary: Alias for /auth/me — get the currently authenticated user
       parameters:
         - $ref: '#/components/parameters/AuthorizationSessionHeader'
         - $ref: '#/components/parameters/SessionCookie'

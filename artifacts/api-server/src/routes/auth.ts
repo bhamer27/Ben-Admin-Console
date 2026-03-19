@@ -137,7 +137,7 @@ router.get("/auth/setup-status", async (_req: Request, res: Response) => {
 });
 
 // ──────────────────────────────────────────────
-// First-time setup: claim admin via one-time token
+// First-time setup: claim admin via one-time token + optional secret gate
 // ──────────────────────────────────────────────
 //
 // Flow:
@@ -146,7 +146,14 @@ router.get("/auth/setup-status", async (_req: Request, res: Response) => {
 //   3. Callback sees no admin configured → generates a signed setup token
 //      stored in DB and redirects to /?setup=pending&token=<tok>&uid=<uid>
 //   4. Frontend shows setup page with "Claim ownership" button
-//   5. POST /api/auth/claim-admin?token=<tok> validates token, writes admin ID, returns session
+//      (if SETUP_SECRET is set, the user must enter it to proceed)
+//   5. POST /api/auth/claim-admin validates token + optional secret, writes admin ID
+//
+// Security tiers (apply in descending preference):
+//   - ADMIN_USER_ID env var: most secure, set before first deploy, no setup flow needed
+//   - SETUP_SECRET env var: requires knowledge of a shared secret to claim admin;
+//     set this before first deploy to prevent unauthorized ownership claims
+//   - No config: one-time token flow only — first user through OIDC can claim admin
 //
 router.post("/auth/claim-admin", async (req: Request, res: Response) => {
   const existingAdmin = await getAdminUserId();
@@ -157,10 +164,20 @@ router.post("/auth/claim-admin", async (req: Request, res: Response) => {
 
   const token = (req.query.token as string) || (req.body?.token as string);
   const uid = (req.query.uid as string) || (req.body?.uid as string);
+  const secret = (req.query.secret as string) || (req.body?.secret as string);
 
   if (!token || !uid) {
     res.status(400).json({ error: "Missing token or uid." });
     return;
+  }
+
+  // Validate SETUP_SECRET if configured
+  const requiredSecret = process.env.SETUP_SECRET;
+  if (requiredSecret) {
+    if (!secret || secret !== requiredSecret) {
+      res.status(403).json({ error: "Invalid setup secret." });
+      return;
+    }
   }
 
   // Validate the one-time setup token from DB
