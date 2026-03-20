@@ -79,7 +79,8 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
 - Required env vars for data integrations:
   - `STRIPE_SECRET_KEY` or `STRIPE_SECRET_KEYS` (comma-separated for multiple accounts)
   - `REPLIT_API_KEY` — Replit API token for GraphQL queries
-  - `KALSHI_STATS_URL` — droplet endpoint e.g. `http://159.65.255.7/api/kalshi/stats`
+  - `KALSHI_API_KEY` — Kalshi API key ID (UUID format)
+  - `KALSHI_PRIVATE_KEY` — RSA private key PEM (or base64-encoded PEM) for signing Kalshi requests; uses RSA-PSS SHA-256 against `api.elections.kalshi.com`
   - `GOOGLE_ACCESS_TOKEN` — OAuth access token for Google APIs
   - `GOOGLE_SEARCH_CONSOLE_SITE_URL` — site property URL for Search Console
   - `GOOGLE_ADS_CUSTOMER_ID` + `GOOGLE_ADS_DEVELOPER_TOKEN` — for Google Ads

@@ -1,13 +1,42 @@
 import { Router, type IRouter, type Request, type Response } from "express";
+import crypto from "crypto";
 
 const router: IRouter = Router();
 
-const KALSHI_BASE = "https://api.kalshi.com/trade-api/v2";
+const KALSHI_BASE = "https://api.elections.kalshi.com/trade-api/v2";
 
-async function kalshiFetch(apiKey: string, path: string) {
+function getPrivateKey(): string {
+  const raw = process.env.KALSHI_PRIVATE_KEY ?? "";
+  if (!raw) return "";
+  if (raw.includes("-----BEGIN")) return raw;
+  return Buffer.from(raw, "base64").toString("utf8");
+}
+
+function signRequest(privateKeyPem: string, method: string, path: string) {
+  const ts = Date.now().toString();
+  const msg = ts + method.toUpperCase() + path;
+  const sig = crypto.sign("SHA256", Buffer.from(msg), {
+    key: privateKeyPem,
+    padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
+    saltLength: crypto.constants.RSA_PSS_SALTLEN_DIGEST,
+  });
+  return { ts, sig: sig.toString("base64") };
+}
+
+async function kalshiFetch(
+  apiKeyId: string,
+  privateKeyPem: string,
+  path: string,
+) {
+  const method = "GET";
+  const { ts, sig } = signRequest(privateKeyPem, method, `/trade-api/v2${path}`);
+
   const res = await fetch(`${KALSHI_BASE}${path}`, {
+    method,
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      "KALSHI-ACCESS-KEY": apiKeyId,
+      "KALSHI-ACCESS-TIMESTAMP": ts,
+      "KALSHI-ACCESS-SIGNATURE": sig,
       Accept: "application/json",
     },
     signal: AbortSignal.timeout(15_000),
@@ -22,21 +51,24 @@ async function kalshiFetch(apiKey: string, path: string) {
 }
 
 router.get("/kalshi/stats", async (_req: Request, res: Response) => {
-  const apiKey = process.env.KALSHI_API_KEY;
+  const apiKeyId = process.env.KALSHI_API_KEY;
+  const privateKeyPem = getPrivateKey();
 
-  if (!apiKey) {
+  if (!apiKeyId || !privateKeyPem) {
     res.status(503).json({
-      error: "KALSHI_API_KEY is not configured.",
+      error: "KALSHI_API_KEY or KALSHI_PRIVATE_KEY is not configured.",
       configured: false,
     });
     return;
   }
 
   try {
-    // Fetch balance and positions in parallel
     const [balanceData, positionsData] = await Promise.all([
-      kalshiFetch(apiKey, "/portfolio/balance") as Promise<{ balance: number }>,
-      kalshiFetch(apiKey, "/portfolio/positions?limit=100") as Promise<{
+      kalshiFetch(apiKeyId, privateKeyPem, "/portfolio/balance") as Promise<{
+        balance: number;
+        portfolio_value?: number;
+      }>,
+      kalshiFetch(apiKeyId, privateKeyPem, "/portfolio/positions?limit=100") as Promise<{
         positions: {
           ticker: string;
           market_id?: string;
@@ -57,22 +89,27 @@ router.get("/kalshi/stats", async (_req: Request, res: Response) => {
     const balance = balanceCents / 100;
     const positions = positionsData?.positions ?? [];
 
-    // Fetch market details for all open positions to get prices and titles
     const openPositions = positions.filter((p) => (p.position ?? 0) !== 0);
 
     const marketDetails = await Promise.allSettled(
       openPositions.map((p) =>
-        kalshiFetch(apiKey, `/markets/${encodeURIComponent(p.ticker)}`).then(
-          (d: { market?: {
-            title?: string;
-            yes_bid?: number;
-            yes_ask?: number;
-            no_bid?: number;
-            no_ask?: number;
-            close_time?: string;
-            yes_price?: number;
-            result?: string;
-          } }) => d?.market ?? null,
+        kalshiFetch(
+          apiKeyId,
+          privateKeyPem,
+          `/markets/${encodeURIComponent(p.ticker)}`,
+        ).then(
+          (d: {
+            market?: {
+              title?: string;
+              yes_bid?: number;
+              yes_ask?: number;
+              no_bid?: number;
+              no_ask?: number;
+              close_time?: string;
+              yes_price?: number;
+              result?: string;
+            };
+          }) => d?.market ?? null,
         ),
       ),
     );
@@ -81,23 +118,25 @@ router.get("/kalshi/stats", async (_req: Request, res: Response) => {
     let totalCurrentValueCents = 0;
 
     const mappedPositions = openPositions.map((pos, i) => {
-      const market = marketDetails[i].status === "fulfilled" ? marketDetails[i].value : null;
+      const market =
+        marketDetails[i].status === "fulfilled"
+          ? marketDetails[i].value
+          : null;
 
       const contracts = Math.abs(pos.position ?? 0);
       const side = (pos.side as "yes" | "no") ?? "yes";
 
-      // market_exposure = cost basis in cents
       const costCents = Math.abs(pos.market_exposure ?? pos.total_traded ?? 0);
 
-      // Current value = contracts × current price (mid of bid/ask)
       const yesBid = market?.yes_bid ?? 0;
       const yesAsk = market?.yes_ask ?? 0;
       const noBid = market?.no_bid ?? 0;
       const noAsk = market?.no_ask ?? 0;
 
-      const currentPriceCents = side === "yes"
-        ? Math.round((yesBid + yesAsk) / 2)
-        : Math.round((noBid + noAsk) / 2);
+      const currentPriceCents =
+        side === "yes"
+          ? Math.round((yesBid + yesAsk) / 2)
+          : Math.round((noBid + noAsk) / 2);
 
       const currentValueCents = contracts * currentPriceCents;
       const pnlCents = currentValueCents - costCents;
@@ -123,9 +162,18 @@ router.get("/kalshi/stats", async (_req: Request, res: Response) => {
     });
 
     const totalInvested = totalInvestedCents / 100;
-    const unrealizedPnl = (totalCurrentValueCents - totalInvestedCents) / 100;
-    const portfolioValue = balance + totalInvested;
-    const cashPct = portfolioValue > 0 ? Math.round((balance / portfolioValue) * 100) : 100;
+    const unrealizedPnl =
+      (totalCurrentValueCents - totalInvestedCents) / 100;
+
+    // Use Kalshi's own portfolio_value if available, else compute
+    const kalshiPortfolioValue = balanceData?.portfolio_value;
+    const portfolioValue =
+      kalshiPortfolioValue != null
+        ? kalshiPortfolioValue / 100
+        : balance + totalInvested;
+
+    const cashPct =
+      portfolioValue > 0 ? Math.round((balance / portfolioValue) * 100) : 100;
     const investedPct = 100 - cashPct;
 
     res.json({
