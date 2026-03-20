@@ -9,6 +9,7 @@ import stocksRouter from "./stocks";
 import tarsRouter from "./tars";
 import revooRouter from "./revoo";
 import permitradarRouter from "./permitradar";
+import productsRouter from "./products";
 import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
@@ -56,5 +57,6 @@ router.use(stocksRouter);
 router.use(tarsRouter);
 router.use(revooRouter);
 router.use(permitradarRouter);
+router.use(productsRouter);
 
 export default router;
