@@ -20,11 +20,20 @@ import type {
   AuthUserEnvelope,
   BeginBrowserLoginParams,
   ErrorEnvelope,
+  GoogleAdsMetrics,
   HandleBrowserLoginCallbackParams,
   HealthStatus,
+  InstantlyMetrics,
+  KalshiStats,
   LogoutSuccess,
   MobileTokenExchangeRequest,
   MobileTokenExchangeSuccess,
+  NotConfiguredError,
+  PublicPortfolio,
+  ReplitMetrics,
+  SearchConsoleMetrics,
+  StripeMetrics,
+  TradierPortfolio,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -116,7 +125,7 @@ export function useHealthCheck<
  * @summary Get the currently authenticated user
  */
 export const getGetCurrentAuthUserUrl = () => {
-  return `/api/auth/user`;
+  return `/api/auth/me`;
 };
 
 export const getCurrentAuthUser = async (
@@ -129,7 +138,7 @@ export const getCurrentAuthUser = async (
 };
 
 export const getGetCurrentAuthUserQueryKey = () => {
-  return [`/api/auth/user`] as const;
+  return [`/api/auth/me`] as const;
 };
 
 export const getGetCurrentAuthUserQueryOptions = <
@@ -179,6 +188,82 @@ export function useGetCurrentAuthUser<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetCurrentAuthUserQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Alias for /auth/me — get the currently authenticated user
+ */
+export const getGetCurrentAuthUserAliasUrl = () => {
+  return `/api/auth/user`;
+};
+
+export const getCurrentAuthUserAlias = async (
+  options?: RequestInit,
+): Promise<AuthUserEnvelope> => {
+  return customFetch<AuthUserEnvelope>(getGetCurrentAuthUserAliasUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCurrentAuthUserAliasQueryKey = () => {
+  return [`/api/auth/user`] as const;
+};
+
+export const getGetCurrentAuthUserAliasQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCurrentAuthUserAlias>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCurrentAuthUserAlias>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetCurrentAuthUserAliasQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCurrentAuthUserAlias>>
+  > = ({ signal }) => getCurrentAuthUserAlias({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCurrentAuthUserAlias>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCurrentAuthUserAliasQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCurrentAuthUserAlias>>
+>;
+export type GetCurrentAuthUserAliasQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Alias for /auth/me — get the currently authenticated user
+ */
+
+export function useGetCurrentAuthUserAlias<
+  TData = Awaited<ReturnType<typeof getCurrentAuthUserAlias>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCurrentAuthUserAlias>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCurrentAuthUserAliasQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -635,3 +720,606 @@ export const useLogoutMobileSession = <
 > => {
   return useMutation(getLogoutMobileSessionMutationOptions(options));
 };
+
+/**
+ * @summary Get live Kalshi bot metrics (proxied from droplet)
+ */
+export const getGetKalshiStatsUrl = () => {
+  return `/api/kalshi/stats`;
+};
+
+export const getKalshiStats = async (
+  options?: RequestInit,
+): Promise<KalshiStats> => {
+  return customFetch<KalshiStats>(getGetKalshiStatsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetKalshiStatsQueryKey = () => {
+  return [`/api/kalshi/stats`] as const;
+};
+
+export const getGetKalshiStatsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getKalshiStats>>,
+  TError = ErrorType<ErrorEnvelope | NotConfiguredError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getKalshiStats>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetKalshiStatsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getKalshiStats>>> = ({
+    signal,
+  }) => getKalshiStats({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getKalshiStats>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetKalshiStatsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getKalshiStats>>
+>;
+export type GetKalshiStatsQueryError = ErrorType<
+  ErrorEnvelope | NotConfiguredError
+>;
+
+/**
+ * @summary Get live Kalshi bot metrics (proxied from droplet)
+ */
+
+export function useGetKalshiStats<
+  TData = Awaited<ReturnType<typeof getKalshiStats>>,
+  TError = ErrorType<ErrorEnvelope | NotConfiguredError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getKalshiStats>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetKalshiStatsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get Stripe revenue and subscriber metrics
+ */
+export const getGetStripeMetricsUrl = () => {
+  return `/api/stripe/metrics`;
+};
+
+export const getStripeMetrics = async (
+  options?: RequestInit,
+): Promise<StripeMetrics> => {
+  return customFetch<StripeMetrics>(getGetStripeMetricsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetStripeMetricsQueryKey = () => {
+  return [`/api/stripe/metrics`] as const;
+};
+
+export const getGetStripeMetricsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getStripeMetrics>>,
+  TError = ErrorType<NotConfiguredError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getStripeMetrics>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetStripeMetricsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getStripeMetrics>>
+  > = ({ signal }) => getStripeMetrics({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getStripeMetrics>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetStripeMetricsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getStripeMetrics>>
+>;
+export type GetStripeMetricsQueryError = ErrorType<NotConfiguredError>;
+
+/**
+ * @summary Get Stripe revenue and subscriber metrics
+ */
+
+export function useGetStripeMetrics<
+  TData = Awaited<ReturnType<typeof getStripeMetrics>>,
+  TError = ErrorType<NotConfiguredError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getStripeMetrics>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetStripeMetricsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get Replit project and usage metrics
+ */
+export const getGetReplitMetricsUrl = () => {
+  return `/api/replit/metrics`;
+};
+
+export const getReplitMetrics = async (
+  options?: RequestInit,
+): Promise<ReplitMetrics> => {
+  return customFetch<ReplitMetrics>(getGetReplitMetricsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetReplitMetricsQueryKey = () => {
+  return [`/api/replit/metrics`] as const;
+};
+
+export const getGetReplitMetricsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getReplitMetrics>>,
+  TError = ErrorType<NotConfiguredError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getReplitMetrics>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetReplitMetricsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getReplitMetrics>>
+  > = ({ signal }) => getReplitMetrics({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getReplitMetrics>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetReplitMetricsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getReplitMetrics>>
+>;
+export type GetReplitMetricsQueryError = ErrorType<NotConfiguredError>;
+
+/**
+ * @summary Get Replit project and usage metrics
+ */
+
+export function useGetReplitMetrics<
+  TData = Awaited<ReturnType<typeof getReplitMetrics>>,
+  TError = ErrorType<NotConfiguredError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getReplitMetrics>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetReplitMetricsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get Google Search Console metrics (last 30 days)
+ */
+export const getGetSearchConsoleMetricsUrl = () => {
+  return `/api/marketing/search-console`;
+};
+
+export const getSearchConsoleMetrics = async (
+  options?: RequestInit,
+): Promise<SearchConsoleMetrics> => {
+  return customFetch<SearchConsoleMetrics>(getGetSearchConsoleMetricsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSearchConsoleMetricsQueryKey = () => {
+  return [`/api/marketing/search-console`] as const;
+};
+
+export const getGetSearchConsoleMetricsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSearchConsoleMetrics>>,
+  TError = ErrorType<NotConfiguredError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSearchConsoleMetrics>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSearchConsoleMetricsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSearchConsoleMetrics>>
+  > = ({ signal }) => getSearchConsoleMetrics({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSearchConsoleMetrics>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSearchConsoleMetricsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSearchConsoleMetrics>>
+>;
+export type GetSearchConsoleMetricsQueryError = ErrorType<NotConfiguredError>;
+
+/**
+ * @summary Get Google Search Console metrics (last 30 days)
+ */
+
+export function useGetSearchConsoleMetrics<
+  TData = Awaited<ReturnType<typeof getSearchConsoleMetrics>>,
+  TError = ErrorType<NotConfiguredError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSearchConsoleMetrics>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSearchConsoleMetricsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get Google Ads spend and conversion metrics (last 30 days)
+ */
+export const getGetGoogleAdsMetricsUrl = () => {
+  return `/api/marketing/google-ads`;
+};
+
+export const getGoogleAdsMetrics = async (
+  options?: RequestInit,
+): Promise<GoogleAdsMetrics> => {
+  return customFetch<GoogleAdsMetrics>(getGetGoogleAdsMetricsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetGoogleAdsMetricsQueryKey = () => {
+  return [`/api/marketing/google-ads`] as const;
+};
+
+export const getGetGoogleAdsMetricsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getGoogleAdsMetrics>>,
+  TError = ErrorType<NotConfiguredError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getGoogleAdsMetrics>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetGoogleAdsMetricsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getGoogleAdsMetrics>>
+  > = ({ signal }) => getGoogleAdsMetrics({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getGoogleAdsMetrics>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetGoogleAdsMetricsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getGoogleAdsMetrics>>
+>;
+export type GetGoogleAdsMetricsQueryError = ErrorType<NotConfiguredError>;
+
+/**
+ * @summary Get Google Ads spend and conversion metrics (last 30 days)
+ */
+
+export function useGetGoogleAdsMetrics<
+  TData = Awaited<ReturnType<typeof getGoogleAdsMetrics>>,
+  TError = ErrorType<NotConfiguredError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getGoogleAdsMetrics>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetGoogleAdsMetricsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get Instantly.ai campaign metrics
+ */
+export const getGetInstantlyMetricsUrl = () => {
+  return `/api/marketing/instantly`;
+};
+
+export const getInstantlyMetrics = async (
+  options?: RequestInit,
+): Promise<InstantlyMetrics> => {
+  return customFetch<InstantlyMetrics>(getGetInstantlyMetricsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetInstantlyMetricsQueryKey = () => {
+  return [`/api/marketing/instantly`] as const;
+};
+
+export const getGetInstantlyMetricsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getInstantlyMetrics>>,
+  TError = ErrorType<NotConfiguredError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getInstantlyMetrics>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetInstantlyMetricsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getInstantlyMetrics>>
+  > = ({ signal }) => getInstantlyMetrics({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getInstantlyMetrics>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetInstantlyMetricsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getInstantlyMetrics>>
+>;
+export type GetInstantlyMetricsQueryError = ErrorType<NotConfiguredError>;
+
+/**
+ * @summary Get Instantly.ai campaign metrics
+ */
+
+export function useGetInstantlyMetrics<
+  TData = Awaited<ReturnType<typeof getInstantlyMetrics>>,
+  TError = ErrorType<NotConfiguredError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getInstantlyMetrics>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetInstantlyMetricsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get Tradier portfolio positions and values
+ */
+export const getGetTradierPortfolioUrl = () => {
+  return `/api/stocks/tradier`;
+};
+
+export const getTradierPortfolio = async (
+  options?: RequestInit,
+): Promise<TradierPortfolio> => {
+  return customFetch<TradierPortfolio>(getGetTradierPortfolioUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTradierPortfolioQueryKey = () => {
+  return [`/api/stocks/tradier`] as const;
+};
+
+export const getGetTradierPortfolioQueryOptions = <
+  TData = Awaited<ReturnType<typeof getTradierPortfolio>>,
+  TError = ErrorType<NotConfiguredError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getTradierPortfolio>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetTradierPortfolioQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getTradierPortfolio>>
+  > = ({ signal }) => getTradierPortfolio({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getTradierPortfolio>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetTradierPortfolioQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getTradierPortfolio>>
+>;
+export type GetTradierPortfolioQueryError = ErrorType<NotConfiguredError>;
+
+/**
+ * @summary Get Tradier portfolio positions and values
+ */
+
+export function useGetTradierPortfolio<
+  TData = Awaited<ReturnType<typeof getTradierPortfolio>>,
+  TError = ErrorType<NotConfiguredError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getTradierPortfolio>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetTradierPortfolioQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get Public.com portfolio holdings and values
+ */
+export const getGetPublicPortfolioUrl = () => {
+  return `/api/stocks/public`;
+};
+
+export const getPublicPortfolio = async (
+  options?: RequestInit,
+): Promise<PublicPortfolio> => {
+  return customFetch<PublicPortfolio>(getGetPublicPortfolioUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPublicPortfolioQueryKey = () => {
+  return [`/api/stocks/public`] as const;
+};
+
+export const getGetPublicPortfolioQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPublicPortfolio>>,
+  TError = ErrorType<NotConfiguredError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPublicPortfolio>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetPublicPortfolioQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPublicPortfolio>>
+  > = ({ signal }) => getPublicPortfolio({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPublicPortfolio>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPublicPortfolioQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPublicPortfolio>>
+>;
+export type GetPublicPortfolioQueryError = ErrorType<NotConfiguredError>;
+
+/**
+ * @summary Get Public.com portfolio holdings and values
+ */
+
+export function useGetPublicPortfolio<
+  TData = Awaited<ReturnType<typeof getPublicPortfolio>>,
+  TError = ErrorType<NotConfiguredError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPublicPortfolio>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPublicPortfolioQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}

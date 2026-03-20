@@ -51,6 +51,144 @@ export interface ErrorEnvelope {
   error: string;
 }
 
+export interface NotConfiguredError {
+  error: string;
+  configured: false;
+}
+
+/**
+ * Flexible object returned by the configured KALSHI_STATS_URL endpoint. Common fields are listed; additional fields pass through as-is.
+
+ */
+export interface KalshiStats {
+  /** @nullable */
+  hit_rate?: number | null;
+  /** @nullable */
+  hitRate?: number | null;
+  /** @nullable */
+  open_positions?: number | null;
+  /** @nullable */
+  openPositions?: number | null;
+  /** @nullable */
+  balance?: number | null;
+  /** @nullable */
+  pnl?: number | null;
+  /** @nullable */
+  total_trades?: number | null;
+  /** @nullable */
+  wins?: number | null;
+  /** @nullable */
+  losses?: number | null;
+  [key: string]: unknown;
+}
+
+export interface StripePriceBreakdown {
+  name: string;
+  mrr: number;
+  activeCount: number;
+}
+
+export type StripeMetricsByPriceId = { [key: string]: StripePriceBreakdown };
+
+export interface StripeMetrics {
+  mrr: number;
+  totalRevenue30d: number;
+  newSubscribers30d: number;
+  activeSubscriptions: number;
+  byPriceId: StripeMetricsByPriceId;
+  errors?: string[];
+}
+
+export interface ReplitRepl {
+  id: string;
+  title: string;
+  slug: string;
+  isPrivate: boolean;
+  hasDeployment: boolean;
+  /** @nullable */
+  deploymentDomain?: string | null;
+  runCount: number;
+  forkCount: number;
+  likeCount: number;
+}
+
+export interface ReplitMetrics {
+  username: string;
+  isVerified: boolean;
+  followerCount: number;
+  followingCount: number;
+  totalRepls: number;
+  deployedCount: number;
+  totalRuns: number;
+  totalForks: number;
+  totalLikes: number;
+  repls: ReplitRepl[];
+}
+
+export interface SearchConsoleMetrics {
+  clicks: number;
+  impressions: number;
+  avgCtr: number;
+  avgPosition: number;
+}
+
+export interface GoogleAdsMetrics {
+  spend: number;
+  conversions: number;
+  impressions: number;
+  clicks: number;
+}
+
+export interface InstantlyCampaign {
+  id: string;
+  name: string;
+  status: number;
+}
+
+export interface InstantlyMetrics {
+  activeCampaigns: number;
+  totalCampaigns: number;
+  emailsSent30d: number;
+  openRate: number;
+  replyRate: number;
+  campaigns: InstantlyCampaign[];
+}
+
+export interface StockPosition {
+  symbol: string;
+  quantity: number;
+  currentPrice: number;
+  value: number;
+  costBasis: number;
+  gainLoss: number;
+  gainLossPct: number;
+  dayChangePct: number;
+}
+
+export interface TradierPortfolio {
+  positions: StockPosition[];
+  totalValue: number;
+  totalCostBasis: number;
+  totalGainLoss: number;
+}
+
+export interface PublicHolding {
+  symbol: string;
+  name: string;
+  quantity: number;
+  currentPrice: number;
+  value: number;
+  gainLoss: number;
+  gainLossPct: number;
+}
+
+export interface PublicPortfolio {
+  portfolioValue: number;
+  totalGainLoss: number;
+  totalReturnPct: number;
+  holdings: PublicHolding[];
+}
+
 /**
  * Opaque session token — `Bearer <sid>`.
  */

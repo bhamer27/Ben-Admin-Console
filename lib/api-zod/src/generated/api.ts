@@ -39,6 +39,29 @@ export const GetCurrentAuthUserResponse = zod.object({
 });
 
 /**
+ * @summary Alias for /auth/me — get the currently authenticated user
+ */
+export const GetCurrentAuthUserAliasHeader = zod.object({
+  Authorization: zod
+    .string()
+    .optional()
+    .describe("Opaque session token — `Bearer <sid>`."),
+});
+
+export const GetCurrentAuthUserAliasResponse = zod.object({
+  user: zod.union([
+    zod.object({
+      id: zod.string(),
+      email: zod.string().email().nullable(),
+      firstName: zod.string().nullable(),
+      lastName: zod.string().nullable(),
+      profileImageUrl: zod.string().nullable(),
+    }),
+    zod.null(),
+  ]),
+});
+
+/**
  * @summary Start the browser OIDC login flow
  */
 export const BeginBrowserLoginQueryParams = zod.object({
@@ -97,4 +120,149 @@ export const LogoutMobileSessionHeader = zod.object({
 
 export const LogoutMobileSessionResponse = zod.object({
   success: zod.boolean(),
+});
+
+/**
+ * @summary Get live Kalshi bot metrics (proxied from droplet)
+ */
+export const GetKalshiStatsResponse = zod
+  .object({
+    hit_rate: zod.number().nullish(),
+    hitRate: zod.number().nullish(),
+    open_positions: zod.number().nullish(),
+    openPositions: zod.number().nullish(),
+    balance: zod.number().nullish(),
+    pnl: zod.number().nullish(),
+    total_trades: zod.number().nullish(),
+    wins: zod.number().nullish(),
+    losses: zod.number().nullish(),
+  })
+  .describe(
+    "Flexible object returned by the configured KALSHI_STATS_URL endpoint. Common fields are listed; additional fields pass through as-is.\n",
+  );
+
+/**
+ * @summary Get Stripe revenue and subscriber metrics
+ */
+export const GetStripeMetricsResponse = zod.object({
+  mrr: zod.number(),
+  totalRevenue30d: zod.number(),
+  newSubscribers30d: zod.number(),
+  activeSubscriptions: zod.number(),
+  byPriceId: zod.record(
+    zod.string(),
+    zod.object({
+      name: zod.string(),
+      mrr: zod.number(),
+      activeCount: zod.number(),
+    }),
+  ),
+  errors: zod.array(zod.string()).optional(),
+});
+
+/**
+ * @summary Get Replit project and usage metrics
+ */
+export const GetReplitMetricsResponse = zod.object({
+  username: zod.string(),
+  isVerified: zod.boolean(),
+  followerCount: zod.number(),
+  followingCount: zod.number(),
+  totalRepls: zod.number(),
+  deployedCount: zod.number(),
+  totalRuns: zod.number(),
+  totalForks: zod.number(),
+  totalLikes: zod.number(),
+  repls: zod.array(
+    zod.object({
+      id: zod.string(),
+      title: zod.string(),
+      slug: zod.string(),
+      isPrivate: zod.boolean(),
+      hasDeployment: zod.boolean(),
+      deploymentDomain: zod.string().nullish(),
+      runCount: zod.number(),
+      forkCount: zod.number(),
+      likeCount: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get Google Search Console metrics (last 30 days)
+ */
+export const GetSearchConsoleMetricsResponse = zod.object({
+  clicks: zod.number(),
+  impressions: zod.number(),
+  avgCtr: zod.number(),
+  avgPosition: zod.number(),
+});
+
+/**
+ * @summary Get Google Ads spend and conversion metrics (last 30 days)
+ */
+export const GetGoogleAdsMetricsResponse = zod.object({
+  spend: zod.number(),
+  conversions: zod.number(),
+  impressions: zod.number(),
+  clicks: zod.number(),
+});
+
+/**
+ * @summary Get Instantly.ai campaign metrics
+ */
+export const GetInstantlyMetricsResponse = zod.object({
+  activeCampaigns: zod.number(),
+  totalCampaigns: zod.number(),
+  emailsSent30d: zod.number(),
+  openRate: zod.number(),
+  replyRate: zod.number(),
+  campaigns: zod.array(
+    zod.object({
+      id: zod.string(),
+      name: zod.string(),
+      status: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get Tradier portfolio positions and values
+ */
+export const GetTradierPortfolioResponse = zod.object({
+  positions: zod.array(
+    zod.object({
+      symbol: zod.string(),
+      quantity: zod.number(),
+      currentPrice: zod.number(),
+      value: zod.number(),
+      costBasis: zod.number(),
+      gainLoss: zod.number(),
+      gainLossPct: zod.number(),
+      dayChangePct: zod.number(),
+    }),
+  ),
+  totalValue: zod.number(),
+  totalCostBasis: zod.number(),
+  totalGainLoss: zod.number(),
+});
+
+/**
+ * @summary Get Public.com portfolio holdings and values
+ */
+export const GetPublicPortfolioResponse = zod.object({
+  portfolioValue: zod.number(),
+  totalGainLoss: zod.number(),
+  totalReturnPct: zod.number(),
+  holdings: zod.array(
+    zod.object({
+      symbol: zod.string(),
+      name: zod.string(),
+      quantity: zod.number(),
+      currentPrice: zod.number(),
+      value: zod.number(),
+      gainLoss: zod.number(),
+      gainLossPct: zod.number(),
+    }),
+  ),
 });

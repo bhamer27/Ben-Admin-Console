@@ -1,4 +1,4 @@
-import { TerminalSquare, RefreshCw, Globe, Activity, Server, Lock } from "lucide-react";
+import { TerminalSquare, RefreshCw, Globe, Activity, Server, Lock, Users, Play, GitFork, Heart } from "lucide-react";
 import { MetricCard } from "@/components/MetricCard";
 import { DataSection } from "@/components/DataSection";
 import { useFetch } from "@/lib/useFetch";
@@ -7,9 +7,14 @@ import { Badge } from "@/components/ui/badge";
 
 interface ReplitMetrics {
   username: string;
+  isVerified: boolean;
+  followerCount: number;
+  followingCount: number;
   totalRepls: number;
   deployedCount: number;
-  activeThisWeek: number;
+  totalRuns: number;
+  totalForks: number;
+  totalLikes: number;
   repls: {
     id: string;
     title: string;
@@ -17,6 +22,9 @@ interface ReplitMetrics {
     isPrivate: boolean;
     hasDeployment: boolean;
     deploymentDomain: string | null;
+    runCount: number;
+    forkCount: number;
+    likeCount: number;
   }[];
 }
 
@@ -52,7 +60,7 @@ export default function Replit() {
       >
         {data && (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
               <MetricCard
                 title="Total Repls"
                 value={String(data.totalRepls)}
@@ -62,14 +70,32 @@ export default function Replit() {
               <MetricCard
                 title="Deployed"
                 value={String(data.deployedCount)}
-                subtitle="With active deployments"
+                subtitle="Active deployments"
                 icon={<Globe className="h-5 w-5" />}
               />
               <MetricCard
-                title="Active This Week"
-                value={String(data.activeThisWeek)}
-                subtitle="With recent activity"
-                icon={<Activity className="h-5 w-5" />}
+                title="Followers"
+                value={data.followerCount.toLocaleString()}
+                subtitle="Replit followers"
+                icon={<Users className="h-5 w-5" />}
+              />
+              <MetricCard
+                title="Total Runs"
+                value={data.totalRuns.toLocaleString()}
+                subtitle="All-time executions"
+                icon={<Play className="h-5 w-5" />}
+              />
+              <MetricCard
+                title="Total Forks"
+                value={data.totalForks.toLocaleString()}
+                subtitle="Community forks"
+                icon={<GitFork className="h-5 w-5" />}
+              />
+              <MetricCard
+                title="Total Likes"
+                value={data.totalLikes.toLocaleString()}
+                subtitle="Community likes"
+                icon={<Heart className="h-5 w-5" />}
               />
             </div>
 
@@ -96,7 +122,17 @@ export default function Replit() {
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                    <div className="flex items-center gap-4 flex-shrink-0 ml-4">
+                      {repl.runCount > 0 && (
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Play className="h-3 w-3" />{repl.runCount.toLocaleString()}
+                        </span>
+                      )}
+                      {repl.forkCount > 0 && (
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <GitFork className="h-3 w-3" />{repl.forkCount}
+                        </span>
+                      )}
                       {repl.hasDeployment && (
                         <Badge variant="outline" className="text-xs border-emerald-500/30 text-emerald-500">deployed</Badge>
                       )}

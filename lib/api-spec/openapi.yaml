@@ -12,6 +12,16 @@ tags:
     description: Health operations
   - name: Auth
     description: Browser and mobile authentication endpoints.
+  - name: Kalshi
+    description: Kalshi trading bot metrics (proxied from droplet).
+  - name: Stripe
+    description: Stripe revenue and subscriber metrics.
+  - name: Replit
+    description: Replit project and usage metrics.
+  - name: Marketing
+    description: Google Search Console, Google Ads, and Instantly.ai metrics.
+  - name: Stocks
+    description: Stock portfolio data from Tradier and Public.com.
 paths:
   /healthz:
     get:
@@ -157,6 +167,172 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LogoutSuccess'
+  /kalshi/stats:
+    get:
+      tags: [Kalshi]
+      operationId: getKalshiStats
+      summary: Get live Kalshi bot metrics (proxied from droplet)
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Kalshi stats from the configured droplet endpoint.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KalshiStats'
+        '503':
+          description: KALSHI_STATS_URL not configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotConfiguredError'
+        '502':
+          description: Upstream Kalshi endpoint unreachable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /stripe/metrics:
+    get:
+      tags: [Stripe]
+      operationId: getStripeMetrics
+      summary: Get Stripe revenue and subscriber metrics
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Aggregated Stripe metrics across all configured accounts.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StripeMetrics'
+        '503':
+          description: No Stripe keys configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotConfiguredError'
+  /replit/metrics:
+    get:
+      tags: [Replit]
+      operationId: getReplitMetrics
+      summary: Get Replit project and usage metrics
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Replit account and project stats.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReplitMetrics'
+        '503':
+          description: REPLIT_API_KEY not configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotConfiguredError'
+  /marketing/search-console:
+    get:
+      tags: [Marketing]
+      operationId: getSearchConsoleMetrics
+      summary: Get Google Search Console metrics (last 30 days)
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Clicks, impressions, CTR and average position.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchConsoleMetrics'
+        '503':
+          description: Required env vars not configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotConfiguredError'
+  /marketing/google-ads:
+    get:
+      tags: [Marketing]
+      operationId: getGoogleAdsMetrics
+      summary: Get Google Ads spend and conversion metrics (last 30 days)
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Spend, conversions, impressions and clicks.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoogleAdsMetrics'
+        '503':
+          description: Required env vars not configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotConfiguredError'
+  /marketing/instantly:
+    get:
+      tags: [Marketing]
+      operationId: getInstantlyMetrics
+      summary: Get Instantly.ai campaign metrics
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Campaign summary and email engagement rates.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstantlyMetrics'
+        '503':
+          description: INSTANTLY_API_KEY not configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotConfiguredError'
+  /stocks/tradier:
+    get:
+      tags: [Stocks]
+      operationId: getTradierPortfolio
+      summary: Get Tradier portfolio positions and values
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Portfolio positions with current prices.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TradierPortfolio'
+        '503':
+          description: TRADIER_API_TOKEN not configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotConfiguredError'
+  /stocks/public:
+    get:
+      tags: [Stocks]
+      operationId: getPublicPortfolio
+      summary: Get Public.com portfolio holdings and values
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Portfolio value and holdings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicPortfolio'
+        '503':
+          description: PUBLIC_COM_API_KEY not configured.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotConfiguredError'
 components:
   parameters:
     AuthorizationSessionHeader:
@@ -243,3 +419,233 @@ components:
       properties:
         error:
           type: string
+    NotConfiguredError:
+      type: object
+      required: [error, configured]
+      properties:
+        error:
+          type: string
+        configured:
+          type: boolean
+          const: false
+    KalshiStats:
+      type: object
+      description: >
+        Flexible object returned by the configured KALSHI_STATS_URL endpoint.
+        Common fields are listed; additional fields pass through as-is.
+      properties:
+        hit_rate:
+          type: ['number', 'null']
+        hitRate:
+          type: ['number', 'null']
+        open_positions:
+          type: ['number', 'null']
+        openPositions:
+          type: ['number', 'null']
+        balance:
+          type: ['number', 'null']
+        pnl:
+          type: ['number', 'null']
+        total_trades:
+          type: ['number', 'null']
+        wins:
+          type: ['number', 'null']
+        losses:
+          type: ['number', 'null']
+      additionalProperties: true
+    StripePriceBreakdown:
+      type: object
+      required: [name, mrr, activeCount]
+      properties:
+        name:
+          type: string
+        mrr:
+          type: number
+        activeCount:
+          type: number
+    StripeMetrics:
+      type: object
+      required: [mrr, totalRevenue30d, newSubscribers30d, activeSubscriptions, byPriceId]
+      properties:
+        mrr:
+          type: number
+        totalRevenue30d:
+          type: number
+        newSubscribers30d:
+          type: number
+        activeSubscriptions:
+          type: number
+        byPriceId:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/StripePriceBreakdown'
+        errors:
+          type: array
+          items:
+            type: string
+    ReplitRepl:
+      type: object
+      required: [id, title, slug, isPrivate, hasDeployment, runCount, forkCount, likeCount]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        slug:
+          type: string
+        isPrivate:
+          type: boolean
+        hasDeployment:
+          type: boolean
+        deploymentDomain:
+          type: ['string', 'null']
+        runCount:
+          type: number
+        forkCount:
+          type: number
+        likeCount:
+          type: number
+    ReplitMetrics:
+      type: object
+      required: [username, isVerified, followerCount, followingCount, totalRepls, deployedCount, totalRuns, totalForks, totalLikes, repls]
+      properties:
+        username:
+          type: string
+        isVerified:
+          type: boolean
+        followerCount:
+          type: number
+        followingCount:
+          type: number
+        totalRepls:
+          type: number
+        deployedCount:
+          type: number
+        totalRuns:
+          type: number
+        totalForks:
+          type: number
+        totalLikes:
+          type: number
+        repls:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReplitRepl'
+    SearchConsoleMetrics:
+      type: object
+      required: [clicks, impressions, avgCtr, avgPosition]
+      properties:
+        clicks:
+          type: number
+        impressions:
+          type: number
+        avgCtr:
+          type: number
+        avgPosition:
+          type: number
+    GoogleAdsMetrics:
+      type: object
+      required: [spend, conversions, impressions, clicks]
+      properties:
+        spend:
+          type: number
+        conversions:
+          type: number
+        impressions:
+          type: number
+        clicks:
+          type: number
+    InstantlyCampaign:
+      type: object
+      required: [id, name, status]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          type: number
+    InstantlyMetrics:
+      type: object
+      required: [activeCampaigns, totalCampaigns, emailsSent30d, openRate, replyRate, campaigns]
+      properties:
+        activeCampaigns:
+          type: number
+        totalCampaigns:
+          type: number
+        emailsSent30d:
+          type: number
+        openRate:
+          type: number
+        replyRate:
+          type: number
+        campaigns:
+          type: array
+          items:
+            $ref: '#/components/schemas/InstantlyCampaign'
+    StockPosition:
+      type: object
+      required: [symbol, quantity, currentPrice, value, costBasis, gainLoss, gainLossPct, dayChangePct]
+      properties:
+        symbol:
+          type: string
+        quantity:
+          type: number
+        currentPrice:
+          type: number
+        value:
+          type: number
+        costBasis:
+          type: number
+        gainLoss:
+          type: number
+        gainLossPct:
+          type: number
+        dayChangePct:
+          type: number
+    TradierPortfolio:
+      type: object
+      required: [positions, totalValue, totalCostBasis, totalGainLoss]
+      properties:
+        positions:
+          type: array
+          items:
+            $ref: '#/components/schemas/StockPosition'
+        totalValue:
+          type: number
+        totalCostBasis:
+          type: number
+        totalGainLoss:
+          type: number
+    PublicHolding:
+      type: object
+      required: [symbol, name, quantity, currentPrice, value, gainLoss, gainLossPct]
+      properties:
+        symbol:
+          type: string
+        name:
+          type: string
+        quantity:
+          type: number
+        currentPrice:
+          type: number
+        value:
+          type: number
+        gainLoss:
+          type: number
+        gainLossPct:
+          type: number
+    PublicPortfolio:
+      type: object
+      required: [portfolioValue, totalGainLoss, totalReturnPct, holdings]
+      properties:
+        portfolioValue:
+          type: number
+        totalGainLoss:
+          type: number
+        totalReturnPct:
+          type: number
+        holdings:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicHolding'

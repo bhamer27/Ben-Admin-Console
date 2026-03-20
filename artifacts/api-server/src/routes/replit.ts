@@ -41,26 +41,30 @@ router.get("/replit/metrics", async (_req: Request, res: Response) => {
   }
 
   try {
-    // Query current user's repls with deployment info
+    // Query current user's repls, profile, and follower counts
     const data = await replitQuery(apiKey, `
       query GetMyRepls {
         currentUser {
           id
           username
-          repls(count: 50) {
+          bio
+          followerCount
+          followingCount
+          isVerified
+          repls(count: 100) {
             items {
               id
               title
               slug
               isPrivate
+              publicForkCount
+              runCount
+              likeCount
+              commentCount
               deployment {
                 id
                 domain
                 slug
-              }
-              recentHistory(count: 7) {
-                path
-                timestamp
               }
             }
           }
@@ -70,14 +74,21 @@ router.get("/replit/metrics", async (_req: Request, res: Response) => {
       currentUser?: {
         id: string;
         username: string;
+        bio?: string;
+        followerCount?: number;
+        followingCount?: number;
+        isVerified?: boolean;
         repls?: {
           items: {
             id: string;
             title: string;
             slug: string;
             isPrivate: boolean;
+            publicForkCount?: number;
+            runCount?: number;
+            likeCount?: number;
+            commentCount?: number;
             deployment?: { id: string; domain: string; slug: string } | null;
-            recentHistory?: { path: string; timestamp: string }[];
           }[];
         };
       };
@@ -91,13 +102,24 @@ router.get("/replit/metrics", async (_req: Request, res: Response) => {
 
     const repls = user.repls?.items ?? [];
     const deployed = repls.filter((r) => r.deployment != null);
-    const active = repls.filter((r) => (r.recentHistory?.length ?? 0) > 0);
+
+    // Usage signals: total runs and forks across all repls serve as engagement/usage metrics.
+    // Note: Replit does not expose subscriber/signup data via the public API.
+    const totalRuns = repls.reduce((s, r) => s + (r.runCount ?? 0), 0);
+    const totalForks = repls.reduce((s, r) => s + (r.publicForkCount ?? 0), 0);
+    const totalLikes = repls.reduce((s, r) => s + (r.likeCount ?? 0), 0);
 
     res.json({
       username: user.username,
+      isVerified: user.isVerified ?? false,
+      followerCount: user.followerCount ?? 0,
+      followingCount: user.followingCount ?? 0,
       totalRepls: repls.length,
       deployedCount: deployed.length,
-      activeThisWeek: active.length,
+      // Usage / engagement metrics
+      totalRuns,
+      totalForks,
+      totalLikes,
       repls: repls.map((r) => ({
         id: r.id,
         title: r.title,
@@ -105,6 +127,9 @@ router.get("/replit/metrics", async (_req: Request, res: Response) => {
         isPrivate: r.isPrivate,
         hasDeployment: r.deployment != null,
         deploymentDomain: r.deployment?.domain ?? null,
+        runCount: r.runCount ?? 0,
+        forkCount: r.publicForkCount ?? 0,
+        likeCount: r.likeCount ?? 0,
       })),
     });
   } catch (err) {
