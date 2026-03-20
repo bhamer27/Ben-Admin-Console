@@ -28,5 +28,3 @@ timeoutMs = 20000
 [userenv]
 
 [userenv.development]
-DISABLE_AUTH = "true"
-VITE_DISABLE_AUTH = "true"

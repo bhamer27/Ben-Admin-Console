@@ -6,10 +6,6 @@ import { type Request, type Response, type NextFunction } from "express";
  * Public routes (auth endpoints) should NOT use this middleware.
  */
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
-  if (process.env.DISABLE_AUTH === "true") {
-    next();
-    return;
-  }
   if (!req.isAuthenticated()) {
     res.status(401).json({ error: "Authentication required" });
     return;
