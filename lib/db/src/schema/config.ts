@@ -21,3 +21,20 @@ export const replitFollowerSnapshotsTable = pgTable("replit_follower_snapshots",
 });
 
 export type ReplitFollowerSnapshot = typeof replitFollowerSnapshotsTable.$inferSelect;
+
+export const revooWaitlistTable = pgTable("revoo_waitlist", {
+  id: serial("id").primaryKey(),
+  businessName: varchar("business_name", { length: 255 }).notNull(),
+  contactName: varchar("contact_name", { length: 255 }),
+  email: varchar("email", { length: 255 }),
+  phone: varchar("phone", { length: 50 }),
+  googleBusinessUrl: varchar("google_business_url", { length: 500 }),
+  status: varchar("status", { length: 50 }).notNull().default("pending"),
+  notes: varchar("notes", { length: 1000 }),
+  source: varchar("source", { length: 100 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
+export type RevooWaitlistEntry = typeof revooWaitlistTable.$inferSelect;
+export type InsertRevooWaitlistEntry = typeof revooWaitlistTable.$inferInsert;

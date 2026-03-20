@@ -7,6 +7,7 @@ import replitRouter from "./replit";
 import marketingRouter from "./marketing";
 import stocksRouter from "./stocks";
 import tarsRouter from "./tars";
+import revooRouter from "./revoo";
 import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
@@ -52,5 +53,6 @@ router.use(replitRouter);
 router.use(marketingRouter);
 router.use(stocksRouter);
 router.use(tarsRouter);
+router.use(revooRouter);
 
 export default router;
