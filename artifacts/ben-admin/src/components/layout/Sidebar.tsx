@@ -2,7 +2,6 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { 
   LayoutDashboard, 
-  TerminalSquare, 
   CreditCard, 
   Megaphone, 
   TrendingUp,
@@ -21,7 +20,6 @@ interface SidebarProps {
 
 const navItems = [
   { href: "/overview", label: "Overview", icon: LayoutDashboard },
-  { href: "/replit", label: "Replit Projects", icon: TerminalSquare },
   { href: "/stripe", label: "Stripe Metrics", icon: CreditCard },
   { href: "/marketing", label: "Marketing", icon: Megaphone },
   { href: "/products", label: "Products", icon: LayoutGrid },
