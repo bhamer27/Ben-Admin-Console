@@ -47,13 +47,16 @@ function fmtDate(iso: string): string {
 }
 
 function PriceBar({ bid, ask, side }: { bid: number; ask: number; side: "yes" | "no" }) {
-  const mid = Math.round((bid + ask) / 2);
+  // bid/ask are in dollars (0.37), display as cents (37¢)
+  const bidCents = Math.round(bid * 100);
+  const askCents = Math.round(ask * 100);
+  const mid = Math.round((bidCents + askCents) / 2);
   return (
     <div className="flex items-center gap-1.5 text-xs">
       <span className={cn("font-mono font-semibold", side === "yes" ? "text-emerald-500" : "text-blue-400")}>
         {mid}¢
       </span>
-      <span className="text-muted-foreground">[{bid}–{ask}]</span>
+      <span className="text-muted-foreground">[{bidCents}–{askCents}]</span>
     </div>
   );
 }
@@ -198,15 +201,15 @@ export default function Kalshi() {
                     <div key={pos.ticker} className="px-6 py-3.5 flex items-start justify-between hover:bg-secondary/30 transition-colors">
                       <div className="flex-1 min-w-0 pr-4">
                         <div className="flex items-center gap-2 mb-0.5">
-                          <span className="text-sm font-semibold font-mono">{pos.ticker}</span>
+                          <span className="text-sm font-semibold leading-snug">{pos.title || pos.ticker}</span>
                           <Badge
                             variant="outline"
-                            className={cn("text-xs uppercase", pos.side === "yes" ? "text-emerald-500 border-emerald-500/40" : "text-blue-400 border-blue-400/40")}
+                            className={cn("text-xs uppercase shrink-0", pos.side === "yes" ? "text-emerald-500 border-emerald-500/40" : "text-blue-400 border-blue-400/40")}
                           >
                             {pos.side}
                           </Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground truncate">{pos.title}</p>
+                        <p className="text-xs text-muted-foreground font-mono mt-0.5">{pos.ticker}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {pos.contracts} contracts · closes {fmtDate(pos.closeTime)}
                         </p>
