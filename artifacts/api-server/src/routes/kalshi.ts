@@ -175,7 +175,8 @@ router.get("/kalshi/stats", async (_req: Request, res: Response) => {
     });
 
     const unrealizedPnl = totalCurrentValue - totalInvested;
-    const portfolioValue = kalshiPortfolioValue || balance + totalInvested;
+    // Total account value = cash balance + Kalshi's mark-to-market of open positions
+    const portfolioValue = balance + kalshiPortfolioValue;
     const cashPct =
       portfolioValue > 0 ? Math.round((balance / portfolioValue) * 100) : 100;
     const investedPct = 100 - cashPct;
@@ -278,11 +279,19 @@ router.get("/kalshi/trades", async (_req: Request, res: Response) => {
     const allSettlements = settlementsResult.status === "fulfilled" ? settlementsResult.value : [];
     const allFills = fillsResult.status === "fulfilled" ? fillsResult.value : [];
 
-    // Build ticker → { buyTotal, sellTotal } from fills (all in dollars)
-    const fillsByTicker = new Map<string, { buyTotal: number; sellTotal: number }>();
+    // Build ticker → fills breakdown from available history (~30 days)
+    // Note: fills older than ~30 days are not returned by the API, so some
+    // opening buy fills may be missing for positions opened before that window.
+    const fillsByTicker = new Map<string, {
+      buyTotal: number; sellTotal: number;
+      buyYes: number; sellYes: number;
+      buyNo: number; sellNo: number;
+    }>();
     for (const fill of allFills) {
       const key = fill.market_ticker || fill.ticker;
-      if (!fillsByTicker.has(key)) fillsByTicker.set(key, { buyTotal: 0, sellTotal: 0 });
+      if (!fillsByTicker.has(key)) {
+        fillsByTicker.set(key, { buyTotal: 0, sellTotal: 0, buyYes: 0, sellYes: 0, buyNo: 0, sellNo: 0 });
+      }
       const entry = fillsByTicker.get(key)!;
       const count = parseFloat(fill.count_fp ?? "0");
       const price = fill.side === "yes"
@@ -291,8 +300,12 @@ router.get("/kalshi/trades", async (_req: Request, res: Response) => {
       const amount = count * price;
       if (fill.action === "buy") {
         entry.buyTotal += amount;
+        if (fill.side === "yes") entry.buyYes += amount;
+        else entry.buyNo += amount;
       } else {
         entry.sellTotal += amount;
+        if (fill.side === "yes") entry.sellYes += amount;
+        else entry.sellNo += amount;
       }
     }
 
@@ -325,11 +338,17 @@ router.get("/kalshi/trades", async (_req: Request, res: Response) => {
       let pnl: number;
       let cost: number;
 
+      // Detect incomplete fill data: if we see sells of a side with no buys of that side,
+      // the original opening trades happened before the 30-day fills window.
+      const missingSideData = fillData
+        ? (fillData.sellNo > 0.01 && fillData.buyNo < 0.01) ||
+          (fillData.sellYes > 0.01 && fillData.buyYes < 0.01)
+        : false;
+      const dataComplete = fillData !== undefined && !missingSideData;
+
       if (fillData) {
         // True P&L = settlement payout + sell proceeds − all buy costs
-        // (sell proceeds are intermediate cash-outs before settlement)
         pnl = settlementRevenue + fillData.sellTotal - fillData.buyTotal;
-        // Display "cost" as net cash at risk = buys − intermediate sells
         cost = fillData.buyTotal - fillData.sellTotal;
       } else {
         // No fills found — fall back to gross cost from settlements
@@ -355,12 +374,13 @@ router.get("/kalshi/trades", async (_req: Request, res: Response) => {
         cost,
         pnl,
         win,
+        dataComplete,
         yesContracts: parseFloat(s.yes_count_fp ?? "0"),
         noContracts: parseFloat(s.no_count_fp ?? "0"),
         yesCostPct: yesPct,
         noCostPct: 100 - yesPct,
         fees: parseFloat(s.fee_cost ?? "0"),
-        pnlSource: fillData ? "fills" : "fallback",
+        pnlSource: fillData ? (dataComplete ? "fills" : "fills-partial") : "fallback",
       };
     });
 
@@ -372,6 +392,7 @@ router.get("/kalshi/trades", async (_req: Request, res: Response) => {
 
     const wins = trades.filter((t) => t.win).length;
     const totalPnl = trades.reduce((sum, t) => sum + t.pnl, 0);
+    const incompleteCount = trades.filter((t) => !t.dataComplete).length;
 
     res.json({
       trades,
@@ -381,6 +402,10 @@ router.get("/kalshi/trades", async (_req: Request, res: Response) => {
         losses: trades.length - wins,
         winRate: trades.length > 0 ? Math.round((wins / trades.length) * 100) : 0,
         totalPnl,
+        // When true, some trades have missing historical fills (opened >30 days ago).
+        // The totalPnl may be overstated — opening buy costs are not available via the API.
+        hasIncompleteData: incompleteCount > 0,
+        incompleteCount,
       },
     });
   } catch (err) {

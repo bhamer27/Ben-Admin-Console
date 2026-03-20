@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { TrendingUp, TrendingDown, Trophy, BarChart2, RefreshCw } from "lucide-react";
+import { TrendingUp, TrendingDown, Trophy, BarChart2, RefreshCw, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useFetch } from "@/lib/useFetch";
@@ -15,6 +15,7 @@ interface ClosedTrade {
   cost: number;
   pnl: number;
   win: boolean;
+  dataComplete: boolean;
   yesContracts: number;
   noContracts: number;
   fees: number;
@@ -26,6 +27,8 @@ interface TradesSummary {
   losses: number;
   winRate: number;
   totalPnl: number;
+  hasIncompleteData: boolean;
+  incompleteCount: number;
 }
 
 interface KalshiTradesResponse {
@@ -104,9 +107,15 @@ export function ClosedTrades() {
             </p>
           </div>
           <div className="px-4 py-3 text-center">
-            <p className="text-xs text-muted-foreground mb-0.5">Realized P&L</p>
+            <p className="text-xs text-muted-foreground mb-0.5 flex items-center justify-center gap-1">
+              Realized P&L
+              {summary.hasIncompleteData && (
+                <AlertTriangle className="h-3 w-3 text-amber-400" title={`${summary.incompleteCount} trade(s) missing historical cost data`} />
+              )}
+            </p>
             <p className={cn("text-base font-semibold", summary.totalPnl >= 0 ? "text-emerald-500" : "text-destructive")}>
               {fmtMoney(summary.totalPnl, true)}
+              {summary.hasIncompleteData && <span className="text-xs text-amber-400 ml-1">est.</span>}
             </p>
           </div>
         </div>
@@ -201,6 +210,9 @@ export function ClosedTrades() {
                 trade.pnl > 0 ? "text-emerald-500" : "text-destructive",
               )}>
                 {fmtMoney(trade.pnl, true)}
+                {!trade.dataComplete && (
+                  <span className="text-[10px] text-amber-400 ml-1 font-normal">est.</span>
+                )}
               </p>
               <p className="text-xs text-muted-foreground">
                 payout {fmtMoney(trade.payout)}
