@@ -17,6 +17,7 @@ import Marketing from "@/pages/Marketing";
 import Kalshi from "@/pages/Kalshi";
 import Tars from "@/pages/Tars";
 import Stocks from "@/pages/Stocks";
+import Products from "@/pages/Products";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -35,6 +36,7 @@ function ProtectedRoutes() {
         <Route path="/kalshi" component={Kalshi} />
         <Route path="/tars" component={Tars} />
         <Route path="/stocks" component={Stocks} />
+        <Route path="/products" component={Products} />
         <Route component={NotFound} />
       </Switch>
     </Shell>

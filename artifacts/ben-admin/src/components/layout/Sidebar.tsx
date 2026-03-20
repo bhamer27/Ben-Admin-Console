@@ -7,7 +7,8 @@ import {
   Megaphone, 
   TrendingUp,
   Cpu,
-  LineChart, 
+  LineChart,
+  LayoutGrid,
   LogOut,
   ShieldAlert
 } from "lucide-react";
@@ -23,6 +24,7 @@ const navItems = [
   { href: "/replit", label: "Replit Projects", icon: TerminalSquare },
   { href: "/stripe", label: "Stripe Metrics", icon: CreditCard },
   { href: "/marketing", label: "Marketing", icon: Megaphone },
+  { href: "/products", label: "Products", icon: LayoutGrid },
   { href: "/kalshi", label: "Kalshi Bot", icon: TrendingUp },
   { href: "/tars", label: "Tradier Portfolio", icon: Cpu },
   { href: "/stocks", label: "Public Portfolio", icon: LineChart },
