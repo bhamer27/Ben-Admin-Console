@@ -1,74 +1,90 @@
 import { useEffect, useRef, useState } from "react";
-import { TrendingUp, RefreshCw, Target, DollarSign, Activity, BarChart2, Terminal } from "lucide-react";
+import { TrendingUp, TrendingDown, RefreshCw, Target, DollarSign, Activity, BarChart2, Terminal, PieChart } from "lucide-react";
 import { MetricCard } from "@/components/MetricCard";
 import { DataSection } from "@/components/DataSection";
 import { useFetch } from "@/lib/useFetch";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+
+interface KalshiPosition {
+  ticker: string;
+  title: string;
+  side: "yes" | "no";
+  contracts: number;
+  invested: number;
+  currentValue: number;
+  pnl: number;
+  yesBid: number;
+  yesAsk: number;
+  noBid: number;
+  noAsk: number;
+  closeTime: string;
+  yesPrice: number;
+}
 
 interface KalshiStats {
-  hit_rate?: number;
-  hitRate?: number;
-  open_positions?: number;
-  openPositions?: number;
-  balance?: number;
-  pnl?: number;
-  pnl_30d?: number;
-  total_trades?: number;
-  totalTrades?: number;
-  wins?: number;
-  losses?: number;
-  [key: string]: unknown;
+  balance: number;
+  portfolioValue: number;
+  totalInvested: number;
+  unrealizedPnl: number;
+  openPositions: number;
+  cashPct: number;
+  investedPct: number;
+  positions: KalshiPosition[];
 }
 
-function fmt(val: number | undefined, prefix = ""): string {
-  if (val == null) return "—";
-  return `${prefix}${val.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+function fmtMoney(val: number): string {
+  const prefix = val < 0 ? "-" : "";
+  return `${prefix}$${Math.abs(val).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function fmtPct(val: number | undefined): string {
-  if (val == null) return "—";
-  return `${(val * 100).toFixed(1)}%`;
+function fmtDate(iso: string): string {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  } catch { return iso; }
 }
 
-function fmtMoney(val: number | undefined): string {
-  if (val == null) return "—";
-  return `$${Math.abs(val).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function PriceBar({ bid, ask, side }: { bid: number; ask: number; side: "yes" | "no" }) {
+  const mid = Math.round((bid + ask) / 2);
+  return (
+    <div className="flex items-center gap-1.5 text-xs">
+      <span className={cn("font-mono font-semibold", side === "yes" ? "text-emerald-500" : "text-blue-400")}>
+        {mid}¢
+      </span>
+      <span className="text-muted-foreground">[{bid}–{ask}]</span>
+    </div>
+  );
 }
 
 function KalshiLogStream() {
   const [lines, setLines] = useState<string[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const streamUrl = (import.meta.env.VITE_KALSHI_LOG_STREAM_URL as string | undefined)
-    ?? "";
+  const streamUrl = (import.meta.env.VITE_KALSHI_LOG_STREAM_URL as string | undefined) ?? "";
 
   useEffect(() => {
     if (!streamUrl) return;
     const token = (import.meta.env.VITE_BENADMIN_TOKEN as string | undefined) ?? "benhamer_internal";
-    // Use EventSource if supported; otherwise polling fetch
     const es = new EventSource(`${streamUrl}?token=${encodeURIComponent(token)}`);
     es.onmessage = (e) => {
       try {
-        const msg = JSON.parse(e.data) as { type: string; line?: string; lines?: string[] };
-        if (msg.type === "line" && msg.line) {
-          setLines((prev) => [...prev.slice(-300), msg.line!]);
-        }
+        const msg = JSON.parse(e.data) as { type: string; line?: string };
+        if (msg.type === "line" && msg.line) setLines((p) => [...p.slice(-300), msg.line!]);
       } catch {
-        setLines((prev) => [...prev.slice(-300), e.data]);
+        setLines((p) => [...p.slice(-300), e.data]);
       }
     };
     return () => es.close();
   }, [streamUrl]);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [lines]);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [lines]);
 
-  const lineColor = (line: string) => {
-    if (line.includes("TRADE ENTERED") || line.includes("ORDER PLACED")) return "text-emerald-400";
-    if (line.includes("BLOCKED") || line.includes("ERROR") || line.includes("error")) return "text-destructive";
-    if (line.includes("ALERT") || line.includes("WARNING")) return "text-orange-400";
-    if (line.includes("SKIP")) return "text-yellow-500";
+  const lineColor = (l: string) => {
+    if (l.includes("TRADE ENTERED") || l.includes("ORDER PLACED")) return "text-emerald-400";
+    if (l.includes("BLOCKED") || l.includes("ERROR") || l.includes("error")) return "text-destructive";
+    if (l.includes("ALERT") || l.includes("WARNING")) return "text-orange-400";
+    if (l.includes("SKIP")) return "text-yellow-500";
     return "text-muted-foreground";
   };
 
@@ -79,15 +95,12 @@ function KalshiLogStream() {
       <div className="flex items-center gap-2 px-5 py-4 border-b border-border">
         <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_6px_theme(colors.emerald.500)]" />
         <Terminal className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Live Analysis Stream</h2>
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Bot Log Stream</h2>
+        <Badge variant="outline" className="text-xs ml-auto">Droplet</Badge>
       </div>
-      <div className="h-72 overflow-y-auto p-4 font-mono text-xs leading-relaxed bg-black/20">
-        {lines.length === 0 && (
-          <p className="text-muted-foreground/40">Waiting for log data...</p>
-        )}
-        {lines.map((line, i) => (
-          <div key={i} className={lineColor(line)}>{line}</div>
-        ))}
+      <div className="h-64 overflow-y-auto p-4 font-mono text-xs leading-relaxed bg-black/20">
+        {lines.length === 0 && <p className="text-muted-foreground/40">Waiting for log data...</p>}
+        {lines.map((line, i) => <div key={i} className={lineColor(line)}>{line}</div>)}
         <div ref={bottomRef} />
       </div>
     </div>
@@ -100,20 +113,14 @@ export default function Kalshi() {
     { refreshInterval: 60_000 },
   );
 
-  const hitRate = data?.hit_rate ?? data?.hitRate;
-  const openPositions = data?.open_positions ?? data?.openPositions;
-  const balance = data?.balance;
-  const pnl = data?.pnl ?? data?.pnl_30d;
-  const totalTrades = data?.total_trades ?? data?.totalTrades;
-  const wins = data?.wins;
-  const losses = data?.losses;
+  const pnlPositive = (data?.unrealizedPnl ?? 0) >= 0;
 
   return (
     <div className="space-y-8 pb-10">
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight mb-2">Kalshi Bot</h1>
-          <p className="text-muted-foreground">Live trading bot metrics from your droplet.</p>
+          <p className="text-muted-foreground">Live prediction market positions. Direct Kalshi API.</p>
         </div>
         {!loading && (
           <Button variant="outline" size="sm" onClick={refetch}>
@@ -128,92 +135,111 @@ export default function Kalshi() {
         error={error}
         configured={configured}
         onRefresh={refetch}
-        configNote="Set KALSHI_STATS_URL to your droplet endpoint (e.g. http://159.65.255.7/api/kalshi/stats) to enable this integration."
+        configNote="Add KALSHI_PRIVATE_KEY to Replit Secrets (the PEM content of your Kalshi private key) to enable this integration."
       >
         {data && (
           <>
+            {/* Top metrics */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <MetricCard
-                title="Hit Rate"
-                value={typeof hitRate === "number" ? fmtPct(hitRate) : "—"}
-                subtitle="Win percentage"
-                icon={<Target className="h-5 w-5" />}
-                trend={typeof hitRate === "number" ? { value: fmtPct(hitRate), isPositive: hitRate >= 0.5 } : undefined}
-              />
-              <MetricCard
-                title="Open Positions"
-                value={typeof openPositions === "number" ? String(openPositions) : "—"}
-                subtitle="Currently active"
-                icon={<Activity className="h-5 w-5" />}
-              />
-              <MetricCard
-                title="Balance"
-                value={typeof balance === "number" ? fmtMoney(balance) : "—"}
-                subtitle="Account balance"
+                title="Cash Balance"
+                value={fmtMoney(data.balance)}
+                subtitle="Available to trade"
                 icon={<DollarSign className="h-5 w-5" />}
               />
               <MetricCard
-                title="P&L"
-                value={typeof pnl === "number" ? fmtMoney(pnl) : "—"}
-                subtitle="Profit / Loss"
-                icon={<TrendingUp className="h-5 w-5" />}
-                trend={typeof pnl === "number" ? { value: fmtMoney(Math.abs(pnl)), isPositive: pnl >= 0 } : undefined}
+                title="Total Invested"
+                value={fmtMoney(data.totalInvested)}
+                subtitle={`${data.investedPct}% of portfolio`}
+                icon={<Activity className="h-5 w-5" />}
+              />
+              <MetricCard
+                title="Unrealized P&L"
+                value={fmtMoney(Math.abs(data.unrealizedPnl))}
+                subtitle="Open positions"
+                icon={pnlPositive ? <TrendingUp className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />}
+                trend={{ value: fmtMoney(Math.abs(data.unrealizedPnl)), isPositive: pnlPositive }}
+              />
+              <MetricCard
+                title="Open Positions"
+                value={String(data.openPositions)}
+                subtitle={`${data.cashPct}% cash`}
+                icon={<Target className="h-5 w-5" />}
               />
             </div>
 
-            {(totalTrades != null || wins != null || losses != null) && (
-              <div className="rounded-xl border border-border bg-card p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <BarChart2 className="h-4 w-4 text-muted-foreground" />
-                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Trade Summary</h2>
-                </div>
-                <div className="flex flex-wrap gap-4">
-                  {totalTrades != null && (
-                    <div>
-                      <p className="text-xs text-muted-foreground">Total Trades</p>
-                      <p className="text-2xl font-semibold font-mono">{totalTrades}</p>
-                    </div>
-                  )}
-                  {wins != null && (
-                    <div>
-                      <p className="text-xs text-muted-foreground">Wins</p>
-                      <p className="text-2xl font-semibold font-mono text-emerald-500">{wins}</p>
-                    </div>
-                  )}
-                  {losses != null && (
-                    <div>
-                      <p className="text-xs text-muted-foreground">Losses</p>
-                      <p className="text-2xl font-semibold font-mono text-destructive">{losses}</p>
-                    </div>
-                  )}
-                </div>
+            {/* Portfolio bar */}
+            <div className="rounded-xl border border-border bg-card p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <PieChart className="h-4 w-4 text-muted-foreground" />
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Portfolio Allocation</h2>
+                <span className="ml-auto text-xs text-muted-foreground font-mono">{fmtMoney(data.portfolioValue)} total</span>
               </div>
-            )}
-
-            {/* Raw data — show any extra fields from the JSON */}
-            {Object.keys(data).filter(k => !["hit_rate","hitRate","open_positions","openPositions","balance","pnl","pnl_30d","total_trades","totalTrades","wins","losses"].includes(k)).length > 0 && (
-              <div className="rounded-xl border border-border bg-card p-6">
-                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Additional Metrics</h2>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {Object.entries(data)
-                    .filter(([k]) => !["hit_rate","hitRate","open_positions","openPositions","balance","pnl","pnl_30d","total_trades","totalTrades","wins","losses"].includes(k))
-                    .map(([k, v]) => (
-                      <div key={k}>
-                        <p className="text-xs text-muted-foreground capitalize">{k.replace(/_/g, " ")}</p>
-                        <p className="text-sm font-mono font-medium">{fmt(typeof v === "number" ? v : undefined) === "—" ? String(v) : fmt(typeof v === "number" ? v : undefined)}</p>
-                      </div>
-                    ))}
-                </div>
+              <div className="flex h-3 rounded-full overflow-hidden gap-0.5">
+                <div className="bg-muted-foreground/40 transition-all" style={{ width: `${data.cashPct}%` }} title={`Cash ${data.cashPct}%`} />
+                <div className="bg-blue-500 transition-all" style={{ width: `${data.investedPct}%` }} title={`Invested ${data.investedPct}%`} />
               </div>
-            )}
-
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Badge variant="outline" className="text-xs">Auto-refreshes every 60s</Badge>
+              <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-muted-foreground/40 inline-block" />Cash {data.cashPct}%</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />Invested {data.investedPct}%</span>
+              </div>
             </div>
+
+            {/* Positions table */}
+            {data.positions.length > 0 ? (
+              <div className="rounded-xl border border-border bg-card">
+                <div className="px-6 py-4 border-b border-border flex items-center gap-2">
+                  <BarChart2 className="h-4 w-4 text-muted-foreground" />
+                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Open Positions</h2>
+                  <Badge variant="outline" className="ml-auto text-xs">{data.positions.length} active</Badge>
+                </div>
+                <div className="divide-y divide-border">
+                  {data.positions.map((pos) => (
+                    <div key={pos.ticker} className="px-6 py-3.5 flex items-start justify-between hover:bg-secondary/30 transition-colors">
+                      <div className="flex-1 min-w-0 pr-4">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-sm font-semibold font-mono">{pos.ticker}</span>
+                          <Badge
+                            variant="outline"
+                            className={cn("text-xs uppercase", pos.side === "yes" ? "text-emerald-500 border-emerald-500/40" : "text-blue-400 border-blue-400/40")}
+                          >
+                            {pos.side}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate">{pos.title}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {pos.contracts} contracts · closes {fmtDate(pos.closeTime)}
+                        </p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <PriceBar
+                          bid={pos.side === "yes" ? pos.yesBid : pos.noBid}
+                          ask={pos.side === "yes" ? pos.yesAsk : pos.noAsk}
+                          side={pos.side}
+                        />
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          cost {fmtMoney(pos.invested)} · now {fmtMoney(pos.currentValue)}
+                        </p>
+                        <p className={cn("text-xs font-semibold mt-0.5", pos.pnl >= 0 ? "text-emerald-500" : "text-destructive")}>
+                          {pos.pnl >= 0 ? "+" : ""}{fmtMoney(pos.pnl)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-border bg-card/30 p-10 text-center text-muted-foreground">
+                No open positions right now.
+              </div>
+            )}
+
+            <Badge variant="outline" className="text-xs">Auto-refreshes every 60s · Direct Kalshi API</Badge>
           </>
         )}
       </DataSection>
 
+      {/* Log stream from droplet (optional, only shows if env var set) */}
       <KalshiLogStream />
     </div>
   );
