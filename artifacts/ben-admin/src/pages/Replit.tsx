@@ -1,12 +1,117 @@
-import { ComingSoonPage } from "./ComingSoonPage";
-import { TerminalSquare } from "lucide-react";
+import { TerminalSquare, RefreshCw, Globe, Activity, Server, Lock } from "lucide-react";
+import { MetricCard } from "@/components/MetricCard";
+import { DataSection } from "@/components/DataSection";
+import { useFetch } from "@/lib/useFetch";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+
+interface ReplitMetrics {
+  username: string;
+  totalRepls: number;
+  deployedCount: number;
+  activeThisWeek: number;
+  repls: {
+    id: string;
+    title: string;
+    slug: string;
+    isPrivate: boolean;
+    hasDeployment: boolean;
+    deploymentDomain: string | null;
+  }[];
+}
 
 export default function Replit() {
+  const { data, error, loading, configured, refetch } = useFetch<ReplitMetrics>(
+    "/api/replit/metrics",
+    { refreshInterval: 5 * 60_000 },
+  );
+
   return (
-    <ComingSoonPage
-      title="Replit Projects"
-      description="Usage metrics, signups, and deployment status across all your Replit projects will appear here once the API integration is complete."
-      icon={<TerminalSquare className="h-10 w-10" />}
-    />
+    <div className="space-y-8 pb-10">
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">Replit Projects</h1>
+          <p className="text-muted-foreground">
+            {data ? `Projects for @${data.username}` : "Deployment and usage stats across your Replit account."}
+          </p>
+        </div>
+        {!loading && (
+          <Button variant="outline" size="sm" onClick={refetch}>
+            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+            Refresh
+          </Button>
+        )}
+      </div>
+
+      <DataSection
+        loading={loading}
+        error={error}
+        configured={configured}
+        onRefresh={refetch}
+        configNote="Set REPLIT_API_KEY to a Replit API token to enable this integration. Generate one at replit.com/account."
+      >
+        {data && (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <MetricCard
+                title="Total Repls"
+                value={String(data.totalRepls)}
+                subtitle="All projects"
+                icon={<TerminalSquare className="h-5 w-5" />}
+              />
+              <MetricCard
+                title="Deployed"
+                value={String(data.deployedCount)}
+                subtitle="With active deployments"
+                icon={<Globe className="h-5 w-5" />}
+              />
+              <MetricCard
+                title="Active This Week"
+                value={String(data.activeThisWeek)}
+                subtitle="With recent activity"
+                icon={<Activity className="h-5 w-5" />}
+              />
+            </div>
+
+            <div className="rounded-xl border border-border bg-card">
+              <div className="p-6 border-b border-border">
+                <div className="flex items-center gap-2">
+                  <Server className="h-4 w-4 text-muted-foreground" />
+                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">All Projects</h2>
+                </div>
+              </div>
+              <div className="divide-y divide-border">
+                {data.repls.map((repl) => (
+                  <div key={repl.id} className="px-6 py-3 flex items-center justify-between hover:bg-secondary/30 transition-colors">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {repl.isPrivate ? (
+                        <Lock className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                      ) : (
+                        <Globe className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{repl.title}</p>
+                        {repl.deploymentDomain && (
+                          <p className="text-xs text-muted-foreground font-mono truncate">{repl.deploymentDomain}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                      {repl.hasDeployment && (
+                        <Badge variant="outline" className="text-xs border-emerald-500/30 text-emerald-500">deployed</Badge>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Badge variant="outline" className="text-xs">Auto-refreshes every 5 min</Badge>
+            </div>
+          </>
+        )}
+      </DataSection>
+    </div>
   );
 }

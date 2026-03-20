@@ -61,7 +61,8 @@ BenAdmin — private single-user admin console for Ben. React + Vite frontend at
 - Protected route system — unauthenticated users redirected to login
 - Owner-only access: after login, server checks `ADMIN_USER_ID` env var; others get 403
 - Sidebar with: Overview, Replit, Stripe, Marketing, Kalshi, Stocks sections
-- All data sections are placeholder "coming soon" state (Task 2 adds real integrations)
+- All sections fetch live data from backend with loading skeletons and error states
+- Auto-refresh: Kalshi 60s, Stripe/Replit/Stocks 5min, Marketing 10min
 - Depends on: `@workspace/api-client-react`, `@workspace/replit-auth-web`
 
 ### `artifacts/api-server` (`@workspace/api-server`)
@@ -74,7 +75,18 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
 - Auth middleware: `src/middlewares/authMiddleware.ts` — loads user from DB session on every request
 - Auth lib: `src/lib/auth.ts` — session CRUD, OIDC config, session refresh
 - Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /healthz`
-- Depends on: `@workspace/db`, `@workspace/api-zod`
+- Data routes: `kalshi.ts`, `stripe.ts`, `replit.ts`, `marketing.ts`, `stocks.ts` — all protected by global auth guard
+- Required env vars for data integrations:
+  - `STRIPE_SECRET_KEY` or `STRIPE_SECRET_KEYS` (comma-separated for multiple accounts)
+  - `REPLIT_API_KEY` — Replit API token for GraphQL queries
+  - `KALSHI_STATS_URL` — droplet endpoint e.g. `http://159.65.255.7/api/kalshi/stats`
+  - `GOOGLE_ACCESS_TOKEN` — OAuth access token for Google APIs
+  - `GOOGLE_SEARCH_CONSOLE_SITE_URL` — site property URL for Search Console
+  - `GOOGLE_ADS_CUSTOMER_ID` + `GOOGLE_ADS_DEVELOPER_TOKEN` — for Google Ads
+  - `INSTANTLY_API_KEY` — Instantly.ai API key
+  - `TRADIER_API_TOKEN` + optionally `TRADIER_ACCOUNT_ID` + `TRADIER_API_URL`
+  - `PUBLIC_COM_API_KEY` — Public.com API key
+- Depends on: `@workspace/db`, `@workspace/api-zod`, `stripe`
 - `pnpm --filter @workspace/api-server run dev` — run the dev server
 - `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
 - Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest

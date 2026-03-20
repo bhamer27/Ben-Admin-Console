@@ -15,9 +15,11 @@
     "cors": "^2",
     "drizzle-orm": "catalog:",
     "express": "^5",
+    "node-fetch": "^3.3.2",
     "openid-client": "^6.8.2",
     "pino": "^9",
-    "pino-http": "^10"
+    "pino-http": "^10",
+    "stripe": "^20.4.1"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",
