@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
-import { TrendingUp, TrendingDown, RefreshCw, Target, DollarSign, Activity, BarChart2, Terminal, PieChart } from "lucide-react";
+import { TrendingUp, TrendingDown, RefreshCw, Target, DollarSign, Activity, BarChart2, PieChart } from "lucide-react";
 import { MetricCard } from "@/components/MetricCard";
 import { DataSection } from "@/components/DataSection";
+import { ClosedTrades } from "@/components/ClosedTrades";
 import { useFetch } from "@/lib/useFetch";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -61,54 +61,6 @@ function PriceBar({ bid, ask, side }: { bid: number; ask: number; side: "yes" | 
   );
 }
 
-function KalshiLogStream() {
-  const [lines, setLines] = useState<string[]>([]);
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const streamUrl = (import.meta.env.VITE_KALSHI_LOG_STREAM_URL as string | undefined) ?? "";
-
-  useEffect(() => {
-    if (!streamUrl) return;
-    const token = (import.meta.env.VITE_BENADMIN_TOKEN as string | undefined) ?? "benhamer_internal";
-    const es = new EventSource(`${streamUrl}?token=${encodeURIComponent(token)}`);
-    es.onmessage = (e) => {
-      try {
-        const msg = JSON.parse(e.data) as { type: string; line?: string };
-        if (msg.type === "line" && msg.line) setLines((p) => [...p.slice(-300), msg.line!]);
-      } catch {
-        setLines((p) => [...p.slice(-300), e.data]);
-      }
-    };
-    return () => es.close();
-  }, [streamUrl]);
-
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [lines]);
-
-  const lineColor = (l: string) => {
-    if (l.includes("TRADE ENTERED") || l.includes("ORDER PLACED")) return "text-emerald-400";
-    if (l.includes("BLOCKED") || l.includes("ERROR") || l.includes("error")) return "text-destructive";
-    if (l.includes("ALERT") || l.includes("WARNING")) return "text-orange-400";
-    if (l.includes("SKIP")) return "text-yellow-500";
-    return "text-muted-foreground";
-  };
-
-  if (!streamUrl) return null;
-
-  return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
-      <div className="flex items-center gap-2 px-5 py-4 border-b border-border">
-        <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_6px_theme(colors.emerald.500)]" />
-        <Terminal className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Bot Log Stream</h2>
-        <Badge variant="outline" className="text-xs ml-auto">Droplet</Badge>
-      </div>
-      <div className="h-64 overflow-y-auto p-4 font-mono text-xs leading-relaxed bg-black/20">
-        {lines.length === 0 && <p className="text-muted-foreground/40">Waiting for log data...</p>}
-        {lines.map((line, i) => <div key={i} className={lineColor(line)}>{line}</div>)}
-        <div ref={bottomRef} />
-      </div>
-    </div>
-  );
-}
 
 export default function Kalshi() {
   const { data, error, loading, configured, refetch } = useFetch<KalshiStats>(
@@ -242,8 +194,7 @@ export default function Kalshi() {
         )}
       </DataSection>
 
-      {/* Log stream from droplet (optional, only shows if env var set) */}
-      <KalshiLogStream />
+      <ClosedTrades />
     </div>
   );
 }

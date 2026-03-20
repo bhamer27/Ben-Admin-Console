@@ -196,4 +196,120 @@ router.get("/kalshi/stats", async (_req: Request, res: Response) => {
   }
 });
 
+interface KalshiSettlement {
+  ticker: string;
+  event_ticker: string;
+  market_result: string;
+  settled_time: string;
+  revenue: number;           // cents
+  yes_total_cost: number;    // cents
+  no_total_cost: number;     // cents
+  yes_count_fp: string;
+  no_count_fp: string;
+  fee_cost: string;
+  value: number;             // cents (unused but present)
+}
+
+router.get("/kalshi/trades", async (_req: Request, res: Response) => {
+  const apiKeyId = process.env.KALSHI_API_KEY;
+  const privateKeyPem = getPrivateKey();
+
+  if (!apiKeyId || !privateKeyPem) {
+    res.status(503).json({ error: "Kalshi not configured.", configured: false });
+    return;
+  }
+
+  try {
+    // Paginate through all settlements (max 5 pages × 100)
+    const allSettlements: KalshiSettlement[] = [];
+    let cursor = "";
+    for (let page = 0; page < 5; page++) {
+      const path = cursor
+        ? `/portfolio/settlements?limit=100&cursor=${encodeURIComponent(cursor)}`
+        : "/portfolio/settlements?limit=100";
+      const d = await kalshiFetch(apiKeyId, privateKeyPem, path) as {
+        settlements: KalshiSettlement[];
+        cursor?: string;
+      };
+      const batch = d.settlements ?? [];
+      allSettlements.push(...batch);
+      cursor = d.cursor ?? "";
+      if (!cursor || batch.length < 100) break;
+    }
+
+    // Only include settlements where the user actually held a position
+    const withPosition = allSettlements.filter(
+      (s) => s.yes_total_cost > 0 || s.no_total_cost > 0,
+    );
+
+    // Fetch market titles in parallel (cap at 50 to avoid rate limits)
+    const capped = withPosition.slice(0, 50);
+    const marketDetails = await Promise.allSettled(
+      capped.map((s) =>
+        kalshiFetch(
+          apiKeyId,
+          privateKeyPem,
+          `/markets/${encodeURIComponent(s.ticker)}`,
+        ).then((d: KalshiMarketResponse) => d?.market ?? null),
+      ),
+    );
+
+    const trades = capped.map((s, i) => {
+      const market =
+        marketDetails[i].status === "fulfilled" ? marketDetails[i].value : null;
+
+      const payout = s.revenue / 100;
+      const costCents = s.yes_total_cost + s.no_total_cost;
+      const cost = costCents / 100;
+      const pnl = payout - cost;
+      const win = pnl > 0;
+
+      const yesPct = s.yes_total_cost > 0
+        ? Math.round((s.yes_total_cost / costCents) * 100)
+        : 0;
+      const noPct = 100 - yesPct;
+
+      return {
+        ticker: s.ticker,
+        eventTicker: s.event_ticker,
+        title: market?.title ?? s.ticker,
+        marketResult: s.market_result as "yes" | "no",
+        settledTime: s.settled_time,
+        payout,
+        cost,
+        pnl,
+        win,
+        yesContracts: parseFloat(s.yes_count_fp ?? "0"),
+        noContracts: parseFloat(s.no_count_fp ?? "0"),
+        yesCostPct: yesPct,
+        noCostPct: noPct,
+        fees: parseFloat(s.fee_cost ?? "0"),
+      };
+    });
+
+    // Sort newest first
+    trades.sort(
+      (a, b) =>
+        new Date(b.settledTime).getTime() - new Date(a.settledTime).getTime(),
+    );
+
+    const wins = trades.filter((t) => t.win).length;
+    const totalPnl = trades.reduce((sum, t) => sum + t.pnl, 0);
+
+    res.json({
+      trades,
+      summary: {
+        total: trades.length,
+        wins,
+        losses: trades.length - wins,
+        winRate: trades.length > 0 ? Math.round((wins / trades.length) * 100) : 0,
+        totalPnl,
+      },
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(502).json({ error: `Kalshi trades error: ${msg}` });
+  }
+});
+
 export default router;
