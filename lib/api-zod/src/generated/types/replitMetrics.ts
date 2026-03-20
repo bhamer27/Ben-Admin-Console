@@ -17,5 +17,10 @@ export interface ReplitMetrics {
   totalRuns: number;
   totalForks: number;
   totalLikes: number;
+  /** New followers gained over the last 30 days. Tracked via DB snapshots. Used as a growth/signup proxy — Replit's public API does not expose app-level user signup data directly.
+   */
+  newFollowers30d: number;
+  /** Alias for newFollowers30d (follower growth = best available signup proxy). */
+  signupsProxy?: number;
   repls: ReplitRepl[];
 }

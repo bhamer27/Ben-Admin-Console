@@ -15,6 +15,8 @@ interface ReplitMetrics {
   totalRuns: number;
   totalForks: number;
   totalLikes: number;
+  /** New followers gained in the last 30 days — growth/signup proxy (Replit API does not expose app signups) */
+  newFollowers30d: number;
   repls: {
     id: string;
     title: string;
@@ -60,24 +62,24 @@ export default function Replit() {
       >
         {data && (
           <>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               <MetricCard
-                title="Total Repls"
-                value={String(data.totalRepls)}
-                subtitle="All projects"
-                icon={<TerminalSquare className="h-5 w-5" />}
+                title="New Followers (30d)"
+                value={`+${data.newFollowers30d.toLocaleString()}`}
+                subtitle="Growth proxy for signups"
+                icon={<Users className="h-5 w-5" />}
               />
               <MetricCard
-                title="Deployed"
-                value={String(data.deployedCount)}
-                subtitle="Active deployments"
-                icon={<Globe className="h-5 w-5" />}
-              />
-              <MetricCard
-                title="Followers"
+                title="Total Followers"
                 value={data.followerCount.toLocaleString()}
                 subtitle="Replit followers"
                 icon={<Users className="h-5 w-5" />}
+              />
+              <MetricCard
+                title="Total Repls"
+                value={String(data.totalRepls)}
+                subtitle={`${data.deployedCount} deployed`}
+                icon={<TerminalSquare className="h-5 w-5" />}
               />
               <MetricCard
                 title="Total Runs"
@@ -85,6 +87,8 @@ export default function Replit() {
                 subtitle="All-time executions"
                 icon={<Play className="h-5 w-5" />}
               />
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               <MetricCard
                 title="Total Forks"
                 value={data.totalForks.toLocaleString()}
@@ -96,6 +100,12 @@ export default function Replit() {
                 value={data.totalLikes.toLocaleString()}
                 subtitle="Community likes"
                 icon={<Heart className="h-5 w-5" />}
+              />
+              <MetricCard
+                title="Deployed Projects"
+                value={String(data.deployedCount)}
+                subtitle="Active deployments"
+                icon={<Globe className="h-5 w-5" />}
               />
             </div>
 

@@ -1,4 +1,4 @@
-import { pgTable, varchar, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, varchar, timestamp, integer, serial } from "drizzle-orm/pg-core";
 
 export const siteConfigTable = pgTable("site_config", {
   key: varchar("key", { length: 100 }).primaryKey(),
@@ -7,3 +7,17 @@ export const siteConfigTable = pgTable("site_config", {
 });
 
 export type SiteConfig = typeof siteConfigTable.$inferSelect;
+
+/**
+ * Tracks Replit follower count over time.
+ * Used to compute "new followers (signups proxy)" since a given period.
+ * Replit's public API does not expose app-level user signups;
+ * follower growth is the best available engagement/growth metric.
+ */
+export const replitFollowerSnapshotsTable = pgTable("replit_follower_snapshots", {
+  id: serial("id").primaryKey(),
+  followerCount: integer("follower_count").notNull(),
+  capturedAt: timestamp("captured_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type ReplitFollowerSnapshot = typeof replitFollowerSnapshotsTable.$inferSelect;

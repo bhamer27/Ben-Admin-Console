@@ -507,7 +507,7 @@ components:
           type: number
     ReplitMetrics:
       type: object
-      required: [username, isVerified, followerCount, followingCount, totalRepls, deployedCount, totalRuns, totalForks, totalLikes, repls]
+      required: [username, isVerified, followerCount, followingCount, totalRepls, deployedCount, totalRuns, totalForks, totalLikes, newFollowers30d, repls]
       properties:
         username:
           type: string
@@ -527,6 +527,15 @@ components:
           type: number
         totalLikes:
           type: number
+        newFollowers30d:
+          type: number
+          description: >
+            New followers gained over the last 30 days. Tracked via DB snapshots.
+            Used as a growth/signup proxy — Replit's public API does not expose
+            app-level user signup data directly.
+        signupsProxy:
+          type: number
+          description: Alias for newFollowers30d (follower growth = best available signup proxy).
         repls:
           type: array
           items:

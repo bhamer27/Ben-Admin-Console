@@ -173,6 +173,17 @@ export const GetReplitMetricsResponse = zod.object({
   totalRuns: zod.number(),
   totalForks: zod.number(),
   totalLikes: zod.number(),
+  newFollowers30d: zod
+    .number()
+    .describe(
+      "New followers gained over the last 30 days. Tracked via DB snapshots. Used as a growth\/signup proxy — Replit's public API does not expose app-level user signup data directly.\n",
+    ),
+  signupsProxy: zod
+    .number()
+    .optional()
+    .describe(
+      "Alias for newFollowers30d (follower growth = best available signup proxy).",
+    ),
   repls: zod.array(
     zod.object({
       id: zod.string(),
