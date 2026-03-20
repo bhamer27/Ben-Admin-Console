@@ -14,7 +14,7 @@ function getPrivateKey(): string {
 
 function signRequest(privateKeyPem: string, method: string, path: string) {
   const ts = Date.now().toString();
-  // Strip query string — Kalshi signs only the path, not query params
+  // Kalshi signs path only — no query string, with /trade-api/v2 prefix
   const pathOnly = path.split("?")[0];
   const msg = ts + method.toUpperCase() + `/trade-api/v2${pathOnly}`;
   const sig = crypto.sign("SHA256", Buffer.from(msg), {
@@ -25,11 +25,7 @@ function signRequest(privateKeyPem: string, method: string, path: string) {
   return { ts, sig: sig.toString("base64") };
 }
 
-async function kalshiFetch(
-  apiKeyId: string,
-  privateKeyPem: string,
-  path: string,
-) {
+async function kalshiFetch(apiKeyId: string, privateKeyPem: string, path: string) {
   const method = "GET";
   const { ts, sig } = signRequest(privateKeyPem, method, path);
 
@@ -52,6 +48,42 @@ async function kalshiFetch(
   return res.json();
 }
 
+// Real Kalshi market_positions shape
+interface KalshiMarketPosition {
+  ticker: string;
+  position_fp: string;          // signed float string: positive = YES, negative = NO
+  market_exposure_dollars: string;
+  total_traded_dollars: string;
+  realized_pnl_dollars: string;
+  fees_paid_dollars: string;
+  resting_orders_count: number;
+  last_updated_ts: string;
+}
+
+interface KalshiPositionsResponse {
+  market_positions: KalshiMarketPosition[];
+  event_positions: unknown[];
+  cursor: string;
+}
+
+interface KalshiBalanceResponse {
+  balance: number;          // cents
+  portfolio_value: number;  // cents
+  updated_ts: number;
+}
+
+interface KalshiMarketResponse {
+  market?: {
+    title?: string;
+    yes_bid_dollars?: string;
+    yes_ask_dollars?: string;
+    no_bid_dollars?: string;
+    no_ask_dollars?: string;
+    last_price_dollars?: string;
+    close_time?: string;
+  };
+}
+
 router.get("/kalshi/stats", async (_req: Request, res: Response) => {
   const apiKeyId = process.env.KALSHI_API_KEY;
   const privateKeyPem = getPrivateKey();
@@ -66,114 +98,84 @@ router.get("/kalshi/stats", async (_req: Request, res: Response) => {
 
   try {
     const [balanceData, positionsData] = await Promise.all([
-      kalshiFetch(apiKeyId, privateKeyPem, "/portfolio/balance") as Promise<{
-        balance: number;
-        portfolio_value?: number;
-      }>,
-      kalshiFetch(apiKeyId, privateKeyPem, "/portfolio/positions?limit=100") as Promise<{
-        positions: {
-          ticker: string;
-          market_id?: string;
-          event_ticker?: string;
-          side?: string;
-          position: number;
-          total_traded: number;
-          market_exposure?: number;
-          realized_pnl?: number;
-          resting_order_total_quantity?: number;
-          fees_paid?: number;
-        }[];
-        cursor?: string;
-      }>,
+      kalshiFetch(apiKeyId, privateKeyPem, "/portfolio/balance") as Promise<KalshiBalanceResponse>,
+      kalshiFetch(apiKeyId, privateKeyPem, "/portfolio/positions?limit=100") as Promise<KalshiPositionsResponse>,
     ]);
 
-    const balanceCents = balanceData?.balance ?? 0;
-    const balance = balanceCents / 100;
-    const positions = positionsData?.positions ?? [];
+    // Balance is in cents
+    const balance = (balanceData?.balance ?? 0) / 100;
+    const kalshiPortfolioValue = (balanceData?.portfolio_value ?? 0) / 100;
 
-    const openPositions = positions.filter((p) => (p.position ?? 0) !== 0);
+    // market_positions: only include those with non-zero position_fp
+    const allMarketPositions = positionsData?.market_positions ?? [];
+    const openMarketPositions = allMarketPositions.filter(
+      (p) => parseFloat(p.position_fp ?? "0") !== 0,
+    );
 
+    // Fetch market details for all open positions in parallel
     const marketDetails = await Promise.allSettled(
-      openPositions.map((p) =>
+      openMarketPositions.map((p) =>
         kalshiFetch(
           apiKeyId,
           privateKeyPem,
           `/markets/${encodeURIComponent(p.ticker)}`,
-        ).then(
-          (d: {
-            market?: {
-              title?: string;
-              yes_bid?: number;
-              yes_ask?: number;
-              no_bid?: number;
-              no_ask?: number;
-              close_time?: string;
-              yes_price?: number;
-              result?: string;
-            };
-          }) => d?.market ?? null,
-        ),
+        ).then((d: KalshiMarketResponse) => d?.market ?? null),
       ),
     );
 
-    let totalInvestedCents = 0;
-    let totalCurrentValueCents = 0;
+    let totalInvested = 0;
+    let totalCurrentValue = 0;
 
-    const mappedPositions = openPositions.map((pos, i) => {
+    const mappedPositions = openMarketPositions.map((pos, i) => {
       const market =
-        marketDetails[i].status === "fulfilled"
-          ? marketDetails[i].value
-          : null;
+        marketDetails[i].status === "fulfilled" ? marketDetails[i].value : null;
 
-      const contracts = Math.abs(pos.position ?? 0);
-      const side = (pos.side as "yes" | "no") ?? "yes";
+      const positionFp = parseFloat(pos.position_fp ?? "0");
+      const contracts = Math.abs(positionFp);
+      // positive position_fp = YES, negative = NO
+      const side: "yes" | "no" = positionFp > 0 ? "yes" : "no";
 
-      const costCents = Math.abs(pos.market_exposure ?? pos.total_traded ?? 0);
+      // Already in dollars (not cents)
+      const invested = parseFloat(pos.market_exposure_dollars ?? "0");
 
-      const yesBid = market?.yes_bid ?? 0;
-      const yesAsk = market?.yes_ask ?? 0;
-      const noBid = market?.no_bid ?? 0;
-      const noAsk = market?.no_ask ?? 0;
+      // Market prices are string dollars ("0.37"), parse to float
+      const yesBid = parseFloat(market?.yes_bid_dollars ?? "0");
+      const yesAsk = parseFloat(market?.yes_ask_dollars ?? "0");
+      const noBid = parseFloat(market?.no_bid_dollars ?? "0");
+      const noAsk = parseFloat(market?.no_ask_dollars ?? "0");
+      const lastPrice = parseFloat(market?.last_price_dollars ?? "0");
 
-      const currentPriceCents =
+      // Mid-price per contract in dollars
+      const currentPrice =
         side === "yes"
-          ? Math.round((yesBid + yesAsk) / 2)
-          : Math.round((noBid + noAsk) / 2);
+          ? (yesBid + yesAsk) / 2 || lastPrice
+          : (noBid + noAsk) / 2 || (1 - lastPrice);
 
-      const currentValueCents = contracts * currentPriceCents;
-      const pnlCents = currentValueCents - costCents;
+      const currentValue = contracts * currentPrice;
+      const pnl = currentValue - invested;
 
-      totalInvestedCents += costCents;
-      totalCurrentValueCents += currentValueCents;
+      totalInvested += invested;
+      totalCurrentValue += currentValue;
 
       return {
         ticker: pos.ticker,
         title: market?.title ?? pos.ticker,
         side,
         contracts,
-        invested: costCents / 100,
-        currentValue: currentValueCents / 100,
-        pnl: pnlCents / 100,
+        invested,
+        currentValue,
+        pnl,
         yesBid,
         yesAsk,
         noBid,
         noAsk,
         closeTime: market?.close_time ?? "",
-        yesPrice: market?.yes_price ?? 0,
+        yesPrice: yesBid > 0 ? Math.round((yesBid + yesAsk) / 2 * 100) : Math.round(lastPrice * 100),
       };
     });
 
-    const totalInvested = totalInvestedCents / 100;
-    const unrealizedPnl =
-      (totalCurrentValueCents - totalInvestedCents) / 100;
-
-    // Use Kalshi's own portfolio_value if available, else compute
-    const kalshiPortfolioValue = balanceData?.portfolio_value;
-    const portfolioValue =
-      kalshiPortfolioValue != null
-        ? kalshiPortfolioValue / 100
-        : balance + totalInvested;
-
+    const unrealizedPnl = totalCurrentValue - totalInvested;
+    const portfolioValue = kalshiPortfolioValue || balance + totalInvested;
     const cashPct =
       portfolioValue > 0 ? Math.round((balance / portfolioValue) * 100) : 100;
     const investedPct = 100 - cashPct;
