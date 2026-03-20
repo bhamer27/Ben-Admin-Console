@@ -202,12 +202,23 @@ interface KalshiSettlement {
   market_result: string;
   settled_time: string;
   revenue: number;           // cents
-  yes_total_cost: number;    // cents
-  no_total_cost: number;     // cents
+  yes_total_cost: number;    // cents (gross buy volume — NOT net cost basis)
+  no_total_cost: number;     // cents (gross buy volume — NOT net cost basis)
   yes_count_fp: string;
   no_count_fp: string;
   fee_cost: string;
-  value: number;             // cents (unused but present)
+  value: number;
+}
+
+interface KalshiFill {
+  ticker: string;
+  market_ticker: string;
+  action: "buy" | "sell";
+  side: "yes" | "no";
+  count_fp: string;
+  yes_price_dollars: string;
+  no_price_dollars: string;
+  fee_cost: string;
 }
 
 router.get("/kalshi/trades", async (_req: Request, res: Response) => {
@@ -220,51 +231,77 @@ router.get("/kalshi/trades", async (_req: Request, res: Response) => {
   }
 
   try {
-    // Paginate through all settlements (max 5 pages × 100)
-    const allSettlements: KalshiSettlement[] = [];
-    let cursor = "";
-    for (let page = 0; page < 5; page++) {
-      const path = cursor
-        ? `/portfolio/settlements?limit=100&cursor=${encodeURIComponent(cursor)}`
-        : "/portfolio/settlements?limit=100";
-      const d = await kalshiFetch(apiKeyId, privateKeyPem, path) as {
-        settlements: KalshiSettlement[];
-        cursor?: string;
-      };
-      const batch = d.settlements ?? [];
-      allSettlements.push(...batch);
-      cursor = d.cursor ?? "";
-      if (!cursor || batch.length < 100) break;
+    // Fetch settlements and fills in parallel
+    const [settlementsResult, fillsResult] = await Promise.allSettled([
+      // Paginate settlements (max 5 pages × 100)
+      (async () => {
+        const all: KalshiSettlement[] = [];
+        let cursor = "";
+        for (let page = 0; page < 5; page++) {
+          const path = cursor
+            ? `/portfolio/settlements?limit=100&cursor=${encodeURIComponent(cursor)}`
+            : "/portfolio/settlements?limit=100";
+          const d = await kalshiFetch(apiKeyId, privateKeyPem, path) as {
+            settlements: KalshiSettlement[];
+            cursor?: string;
+          };
+          const batch = d.settlements ?? [];
+          all.push(...batch);
+          cursor = d.cursor ?? "";
+          if (!cursor || batch.length < 100) break;
+        }
+        return all;
+      })(),
+      // Paginate fills (max 10 pages × 100)
+      // fills give us the true buy cost and sell proceeds per market so we can
+      // compute accurate net P&L: pnl = settlement_revenue + sell_proceeds - buy_costs
+      (async () => {
+        const all: KalshiFill[] = [];
+        let cursor = "";
+        for (let page = 0; page < 10; page++) {
+          const path = cursor
+            ? `/portfolio/fills?limit=100&cursor=${encodeURIComponent(cursor)}`
+            : "/portfolio/fills?limit=100";
+          const d = await kalshiFetch(apiKeyId, privateKeyPem, path) as {
+            fills: KalshiFill[];
+            cursor?: string;
+          };
+          const batch = d.fills ?? [];
+          all.push(...batch);
+          cursor = d.cursor ?? "";
+          if (!cursor || batch.length < 100) break;
+        }
+        return all;
+      })(),
+    ]);
+
+    const allSettlements = settlementsResult.status === "fulfilled" ? settlementsResult.value : [];
+    const allFills = fillsResult.status === "fulfilled" ? fillsResult.value : [];
+
+    // Build ticker → { buyTotal, sellTotal } from fills (all in dollars)
+    const fillsByTicker = new Map<string, { buyTotal: number; sellTotal: number }>();
+    for (const fill of allFills) {
+      const key = fill.market_ticker || fill.ticker;
+      if (!fillsByTicker.has(key)) fillsByTicker.set(key, { buyTotal: 0, sellTotal: 0 });
+      const entry = fillsByTicker.get(key)!;
+      const count = parseFloat(fill.count_fp ?? "0");
+      const price = fill.side === "yes"
+        ? parseFloat(fill.yes_price_dollars ?? "0")
+        : parseFloat(fill.no_price_dollars ?? "0");
+      const amount = count * price;
+      if (fill.action === "buy") {
+        entry.buyTotal += amount;
+      } else {
+        entry.sellTotal += amount;
+      }
     }
 
-    // Only include settlements where the user actually held a position
+    // Only include settlements where the user actually had fills (traded)
     const withPosition = allSettlements.filter(
       (s) => s.yes_total_cost > 0 || s.no_total_cost > 0,
     );
 
-    // Fetch settled market positions to get accurate realized_pnl_dollars.
-    // yes_total_cost + no_total_cost in settlements = cumulative buy volume (NOT net cost
-    // basis), so we must use realized_pnl_dollars from market_positions instead.
-    const realizedPnlMap = new Map<string, number>();
-    try {
-      let posCursor = "";
-      for (let page = 0; page < 3; page++) {
-        const posPath = posCursor
-          ? `/portfolio/positions?settlement_status=settled&limit=200&cursor=${encodeURIComponent(posCursor)}`
-          : "/portfolio/positions?settlement_status=settled&limit=200";
-        const posData = await kalshiFetch(apiKeyId, privateKeyPem, posPath) as KalshiPositionsResponse;
-        for (const mp of posData.market_positions ?? []) {
-          const pnl = parseFloat(mp.realized_pnl_dollars ?? "0");
-          realizedPnlMap.set(mp.ticker, pnl);
-        }
-        posCursor = posData.cursor ?? "";
-        if (!posCursor || (posData.market_positions ?? []).length < 200) break;
-      }
-    } catch {
-      // If settled positions fetch fails, we fall back to revenue-based calculation below
-    }
-
-    // Fetch market titles in parallel (cap at 50 to avoid rate limits)
+    // Fetch market titles in parallel (cap at 50)
     const capped = withPosition.slice(0, 50);
     const marketDetails = await Promise.allSettled(
       capped.map((s) =>
@@ -280,31 +317,33 @@ router.get("/kalshi/trades", async (_req: Request, res: Response) => {
       const market =
         marketDetails[i].status === "fulfilled" ? marketDetails[i].value : null;
 
-      const payout = s.revenue / 100;
+      // settlement_revenue: cash received when market settled (winners only)
+      const settlementRevenue = s.revenue / 100;
 
-      // Prefer realized_pnl_dollars from settled market positions — it accounts for
-      // intermediate buys/sells and is the canonical net P&L figure.
-      // Fall back to revenue minus gross cost only if the ticker isn't in the map.
+      // fills-based: buy_costs and sell_proceeds for this market
+      const fillData = fillsByTicker.get(s.ticker);
       let pnl: number;
       let cost: number;
-      if (realizedPnlMap.has(s.ticker)) {
-        pnl = realizedPnlMap.get(s.ticker)!;
-        // Back-compute cost for display: cost = payout - pnl
-        cost = payout - pnl;
+
+      if (fillData) {
+        // True P&L = settlement payout + sell proceeds − all buy costs
+        // (sell proceeds are intermediate cash-outs before settlement)
+        pnl = settlementRevenue + fillData.sellTotal - fillData.buyTotal;
+        // Display "cost" as net cash at risk = buys − intermediate sells
+        cost = fillData.buyTotal - fillData.sellTotal;
       } else {
-        // Fallback: gross volume (known to overstate cost when positions were partially sold)
-        const costCents = s.yes_total_cost + s.no_total_cost;
-        cost = costCents / 100;
-        pnl = payout - cost;
+        // No fills found — fall back to gross cost from settlements
+        cost = (s.yes_total_cost + s.no_total_cost) / 100;
+        pnl = settlementRevenue - cost;
       }
 
       const win = pnl > 0;
+      const payout = settlementRevenue;
 
-      const costCentsFallback = s.yes_total_cost + s.no_total_cost;
-      const yesPct = s.yes_total_cost > 0 && costCentsFallback > 0
-        ? Math.round((s.yes_total_cost / costCentsFallback) * 100)
+      const costCents = s.yes_total_cost + s.no_total_cost;
+      const yesPct = s.yes_total_cost > 0 && costCents > 0
+        ? Math.round((s.yes_total_cost / costCents) * 100)
         : 0;
-      const noPct = 100 - yesPct;
 
       return {
         ticker: s.ticker,
@@ -319,9 +358,9 @@ router.get("/kalshi/trades", async (_req: Request, res: Response) => {
         yesContracts: parseFloat(s.yes_count_fp ?? "0"),
         noContracts: parseFloat(s.no_count_fp ?? "0"),
         yesCostPct: yesPct,
-        noCostPct: noPct,
+        noCostPct: 100 - yesPct,
         fees: parseFloat(s.fee_cost ?? "0"),
-        pnlSource: realizedPnlMap.has(s.ticker) ? "realized" : "fallback",
+        pnlSource: fillData ? "fills" : "fallback",
       };
     });
 
