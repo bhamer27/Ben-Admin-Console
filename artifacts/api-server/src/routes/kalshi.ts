@@ -14,8 +14,12 @@ router.get("/kalshi/stats", async (_req: Request, res: Response) => {
   }
 
   try {
+    const token = process.env.BENADMIN_TOKEN ?? "";
     const upstream = await fetch(statsUrl, {
-      headers: { "Accept": "application/json" },
+      headers: {
+        "Accept": "application/json",
+        ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+      },
       signal: AbortSignal.timeout(10_000),
     });
 

@@ -15,6 +15,7 @@ import Replit from "@/pages/Replit";
 import Stripe from "@/pages/Stripe";
 import Marketing from "@/pages/Marketing";
 import Kalshi from "@/pages/Kalshi";
+import Tars from "@/pages/Tars";
 import Stocks from "@/pages/Stocks";
 import NotFound from "@/pages/not-found";
 
@@ -32,6 +33,7 @@ function ProtectedRoutes() {
         <Route path="/stripe" component={Stripe} />
         <Route path="/marketing" component={Marketing} />
         <Route path="/kalshi" component={Kalshi} />
+        <Route path="/tars" component={Tars} />
         <Route path="/stocks" component={Stocks} />
         <Route component={NotFound} />
       </Switch>

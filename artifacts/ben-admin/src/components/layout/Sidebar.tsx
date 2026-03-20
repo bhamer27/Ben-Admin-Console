@@ -5,7 +5,8 @@ import {
   TerminalSquare, 
   CreditCard, 
   Megaphone, 
-  TrendingUp, 
+  TrendingUp,
+  Cpu,
   LineChart, 
   LogOut,
   ShieldAlert
@@ -23,6 +24,7 @@ const navItems = [
   { href: "/stripe", label: "Stripe Metrics", icon: CreditCard },
   { href: "/marketing", label: "Marketing", icon: Megaphone },
   { href: "/kalshi", label: "Kalshi Bot", icon: TrendingUp },
+  { href: "/tars", label: "Tars Options", icon: Cpu },
   { href: "/stocks", label: "Stock Portfolios", icon: LineChart },
 ];
 
