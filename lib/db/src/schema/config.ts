@@ -38,3 +38,20 @@ export const revooWaitlistTable = pgTable("revoo_waitlist", {
 
 export type RevooWaitlistEntry = typeof revooWaitlistTable.$inferSelect;
 export type InsertRevooWaitlistEntry = typeof revooWaitlistTable.$inferInsert;
+
+export const permitradarCityRequestsTable = pgTable("permitradar_city_requests", {
+  id: serial("id").primaryKey(),
+  cityName: varchar("city_name", { length: 255 }).notNull(),
+  state: varchar("state", { length: 100 }),
+  country: varchar("country", { length: 100 }).default("US"),
+  contactName: varchar("contact_name", { length: 255 }),
+  email: varchar("email", { length: 255 }),
+  reason: varchar("reason", { length: 1000 }),
+  status: varchar("status", { length: 50 }).notNull().default("pending"),
+  source: varchar("source", { length: 100 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
+export type PermitRadarCityRequest = typeof permitradarCityRequestsTable.$inferSelect;
+export type InsertPermitRadarCityRequest = typeof permitradarCityRequestsTable.$inferInsert;
