@@ -59,6 +59,11 @@ async function fetchTradier(apiToken: string) {
     signal: AbortSignal.timeout(10_000),
   });
 
+  if (!quoteRes.ok) {
+    const text = await quoteRes.text().catch(() => "");
+    throw new Error(`Tradier quotes API ${quoteRes.status}: ${text.slice(0, 200)}`);
+  }
+
   const quoteData = await quoteRes.json() as {
     quotes?: {
       quote?: { symbol: string; last: number; change_percentage: number }[]
