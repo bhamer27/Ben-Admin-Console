@@ -39,11 +39,18 @@ function ProtectedRoutes() {
   );
 }
 
+const DEV_SKIP_AUTH = import.meta.env.VITE_DISABLE_AUTH === "true";
+
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
   const search = useSearch();
   const params = new URLSearchParams(search);
   const isSetupPending = params.get("setup") === "pending";
+
+  // Dev mode: bypass all auth checks
+  if (DEV_SKIP_AUTH) {
+    return <ProtectedRoutes />;
+  }
 
   if (isLoading) {
     return <LoadingScreen />;
