@@ -24,8 +24,8 @@ const navItems = [
   { href: "/stripe", label: "Stripe Metrics", icon: CreditCard },
   { href: "/marketing", label: "Marketing", icon: Megaphone },
   { href: "/kalshi", label: "Kalshi Bot", icon: TrendingUp },
-  { href: "/tars", label: "Tars Options", icon: Cpu },
-  { href: "/stocks", label: "Stock Portfolios", icon: LineChart },
+  { href: "/tars", label: "Tradier Portfolio", icon: Cpu },
+  { href: "/stocks", label: "Public Portfolio", icon: LineChart },
 ];
 
 export function Sidebar({ user, logout }: SidebarProps) {

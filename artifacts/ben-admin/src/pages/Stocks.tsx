@@ -105,8 +105,8 @@ export default function Stocks() {
     <div className="space-y-8 pb-10">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Stocks</h1>
-          <p className="text-muted-foreground">Portfolio holdings from Tradier and Public.com.</p>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">Public Portfolio</h1>
+          <p className="text-muted-foreground">Holdings from Public.com.</p>
         </div>
         {!anyLoading && (
           <Button variant="outline" size="sm" onClick={refreshAll}>

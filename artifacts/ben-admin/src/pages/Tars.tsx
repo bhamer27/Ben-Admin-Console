@@ -110,7 +110,7 @@ export default function Tars() {
     <div className="space-y-8 pb-10">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Tars Options Bot</h1>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">Tradier Portfolio</h1>
           <p className="text-muted-foreground">
             Live options trading via Unusual Whales flow scoring.
             {eng && (
