@@ -303,7 +303,7 @@ export default function Products() {
         </TabsList>
 
         <TabsContent value="permitradar"><PermitRadarTab /></TabsContent>
-        <TabsContent value="revoo"><RevooTab /></TabsContent>
+        <TabsContent value="revoo"><ComingSoonMetrics product="Re-Voo" /></TabsContent>
         <TabsContent value="leadpulse"><ComingSoonMetrics product="LeadPulse" /></TabsContent>
         <TabsContent value="answerdine"><ComingSoonMetrics product="AnswerDine" /></TabsContent>
       </Tabs>
