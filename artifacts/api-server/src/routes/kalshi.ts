@@ -14,7 +14,9 @@ function getPrivateKey(): string {
 
 function signRequest(privateKeyPem: string, method: string, path: string) {
   const ts = Date.now().toString();
-  const msg = ts + method.toUpperCase() + path;
+  // Strip query string — Kalshi signs only the path, not query params
+  const pathOnly = path.split("?")[0];
+  const msg = ts + method.toUpperCase() + `/trade-api/v2${pathOnly}`;
   const sig = crypto.sign("SHA256", Buffer.from(msg), {
     key: privateKeyPem,
     padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
@@ -29,7 +31,7 @@ async function kalshiFetch(
   path: string,
 ) {
   const method = "GET";
-  const { ts, sig } = signRequest(privateKeyPem, method, `/trade-api/v2${path}`);
+  const { ts, sig } = signRequest(privateKeyPem, method, path);
 
   const res = await fetch(`${KALSHI_BASE}${path}`, {
     method,
