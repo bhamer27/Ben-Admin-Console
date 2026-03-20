@@ -242,6 +242,28 @@ router.get("/kalshi/trades", async (_req: Request, res: Response) => {
       (s) => s.yes_total_cost > 0 || s.no_total_cost > 0,
     );
 
+    // Fetch settled market positions to get accurate realized_pnl_dollars.
+    // yes_total_cost + no_total_cost in settlements = cumulative buy volume (NOT net cost
+    // basis), so we must use realized_pnl_dollars from market_positions instead.
+    const realizedPnlMap = new Map<string, number>();
+    try {
+      let posCursor = "";
+      for (let page = 0; page < 3; page++) {
+        const posPath = posCursor
+          ? `/portfolio/positions?settlement_status=settled&limit=200&cursor=${encodeURIComponent(posCursor)}`
+          : "/portfolio/positions?settlement_status=settled&limit=200";
+        const posData = await kalshiFetch(apiKeyId, privateKeyPem, posPath) as KalshiPositionsResponse;
+        for (const mp of posData.market_positions ?? []) {
+          const pnl = parseFloat(mp.realized_pnl_dollars ?? "0");
+          realizedPnlMap.set(mp.ticker, pnl);
+        }
+        posCursor = posData.cursor ?? "";
+        if (!posCursor || (posData.market_positions ?? []).length < 200) break;
+      }
+    } catch {
+      // If settled positions fetch fails, we fall back to revenue-based calculation below
+    }
+
     // Fetch market titles in parallel (cap at 50 to avoid rate limits)
     const capped = withPosition.slice(0, 50);
     const marketDetails = await Promise.allSettled(
@@ -259,13 +281,28 @@ router.get("/kalshi/trades", async (_req: Request, res: Response) => {
         marketDetails[i].status === "fulfilled" ? marketDetails[i].value : null;
 
       const payout = s.revenue / 100;
-      const costCents = s.yes_total_cost + s.no_total_cost;
-      const cost = costCents / 100;
-      const pnl = payout - cost;
+
+      // Prefer realized_pnl_dollars from settled market positions — it accounts for
+      // intermediate buys/sells and is the canonical net P&L figure.
+      // Fall back to revenue minus gross cost only if the ticker isn't in the map.
+      let pnl: number;
+      let cost: number;
+      if (realizedPnlMap.has(s.ticker)) {
+        pnl = realizedPnlMap.get(s.ticker)!;
+        // Back-compute cost for display: cost = payout - pnl
+        cost = payout - pnl;
+      } else {
+        // Fallback: gross volume (known to overstate cost when positions were partially sold)
+        const costCents = s.yes_total_cost + s.no_total_cost;
+        cost = costCents / 100;
+        pnl = payout - cost;
+      }
+
       const win = pnl > 0;
 
-      const yesPct = s.yes_total_cost > 0
-        ? Math.round((s.yes_total_cost / costCents) * 100)
+      const costCentsFallback = s.yes_total_cost + s.no_total_cost;
+      const yesPct = s.yes_total_cost > 0 && costCentsFallback > 0
+        ? Math.round((s.yes_total_cost / costCentsFallback) * 100)
         : 0;
       const noPct = 100 - yesPct;
 
@@ -284,6 +321,7 @@ router.get("/kalshi/trades", async (_req: Request, res: Response) => {
         yesCostPct: yesPct,
         noCostPct: noPct,
         fees: parseFloat(s.fee_cost ?? "0"),
+        pnlSource: realizedPnlMap.has(s.ticker) ? "realized" : "fallback",
       };
     });
 
