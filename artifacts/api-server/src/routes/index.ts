@@ -6,6 +6,7 @@ import stripeRouter from "./stripe";
 import replitRouter from "./replit";
 import marketingRouter from "./marketing";
 import stocksRouter from "./stocks";
+import chatRouter from "./chat";
 import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
@@ -50,5 +51,6 @@ router.use(stripeRouter);
 router.use(replitRouter);
 router.use(marketingRouter);
 router.use(stocksRouter);
+router.use(chatRouter);
 
 export default router;
