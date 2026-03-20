@@ -22,24 +22,68 @@ interface StripeMetrics {
   >;
 }
 
+/** Paginate through all pages of a Stripe list endpoint. */
+async function listAll<T extends Stripe.ApiListPromise<Stripe.ApiList<unknown>>>(
+  firstPage: Stripe.ApiList<unknown>,
+  fetchNext: (startingAfter: string) => Promise<Stripe.ApiList<unknown>>,
+): Promise<unknown[]> {
+  const items: unknown[] = [...firstPage.data];
+  let page = firstPage;
+  while (page.has_more) {
+    const lastId = page.data[page.data.length - 1] as { id: string };
+    page = await fetchNext(lastId.id);
+    items.push(...page.data);
+  }
+  return items;
+}
+
 async function fetchAccountMetrics(client: Stripe): Promise<StripeMetrics> {
   const now = Math.floor(Date.now() / 1000);
   const thirtyDaysAgo = now - 30 * 24 * 60 * 60;
 
-  const [subsPage, chargesPage] = await Promise.all([
-    client.subscriptions.list({
+  // Fetch ALL active subscriptions (paginated)
+  const firstSubsPage = await client.subscriptions.list({
+    status: "active",
+    limit: 100,
+    expand: ["data.items.data.price.product"],
+  });
+  const subs = await listAll(
+    firstSubsPage,
+    (after) => client.subscriptions.list({
       status: "active",
       limit: 100,
-      expand: ["data.plan.product"],
+      starting_after: after,
+      expand: ["data.items.data.price.product"],
     }),
-    client.charges.list({
+  ) as Stripe.Subscription[];
+
+  // Fetch ALL charges in the last 30 days (paginated)
+  const firstChargesPage = await client.charges.list({
+    created: { gte: thirtyDaysAgo },
+    limit: 100,
+  });
+  const charges = await listAll(
+    firstChargesPage,
+    (after) => client.charges.list({
       created: { gte: thirtyDaysAgo },
       limit: 100,
+      starting_after: after,
     }),
-  ]);
+  ) as Stripe.Charge[];
 
-  const subs = subsPage.data;
-  const charges = chargesPage.data;
+  // Fetch ALL new subscriptions in the last 30 days (paginated)
+  const firstNewSubsPage = await client.subscriptions.list({
+    created: { gte: thirtyDaysAgo },
+    limit: 100,
+  });
+  const newSubs = await listAll(
+    firstNewSubsPage,
+    (after) => client.subscriptions.list({
+      created: { gte: thirtyDaysAgo },
+      limit: 100,
+      starting_after: after,
+    }),
+  ) as Stripe.Subscription[];
 
   let mrr = 0;
   const byPriceId: Record<string, { name: string; mrr: number; activeCount: number }> = {};
@@ -77,15 +121,10 @@ async function fetchAccountMetrics(client: Stripe): Promise<StripeMetrics> {
     .filter((c) => c.paid && !c.refunded)
     .reduce((sum, c) => sum + c.amount, 0);
 
-  const newSubs = await client.subscriptions.list({
-    created: { gte: thirtyDaysAgo },
-    limit: 100,
-  });
-
   return {
     mrr: Math.round(mrr) / 100,
     totalRevenue30d: totalRevenue30d / 100,
-    newSubscribers30d: newSubs.data.length,
+    newSubscribers30d: newSubs.length,
     activeSubscriptions: subs.length,
     byPriceId: Object.fromEntries(
       Object.entries(byPriceId).map(([k, v]) => [
