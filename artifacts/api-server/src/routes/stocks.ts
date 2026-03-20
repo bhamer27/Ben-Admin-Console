@@ -3,6 +3,42 @@ import { Router, type IRouter, type Request, type Response } from "express";
 const router: IRouter = Router();
 
 // ──────────────────────────────────────────
+// Option symbol helpers
+// ──────────────────────────────────────────
+
+/**
+ * Detect whether a symbol is an OCC option symbol (e.g. IWM260417P00230000).
+ * OCC symbols always contain digits — regular tickers do not.
+ */
+export function isOptionSymbol(symbol: string): boolean {
+  return /[A-Z]+\d{6}[PC]\d{8}/.test(symbol);
+}
+
+/**
+ * Parse an OCC option symbol into human-readable parts.
+ * Format: <UNDERLYING><YYMMDD><P|C><00STRIKE000>
+ * e.g. IWM260417P00230000 → { underlying: "IWM", expiry: "Apr 17, 2026", type: "Put", strike: 230 }
+ */
+export function parseOptionSymbol(symbol: string): {
+  underlying: string;
+  expiry: string;
+  type: "Call" | "Put";
+  strike: number;
+} | null {
+  const m = symbol.match(/^([A-Z]+)(\d{2})(\d{2})(\d{2})([PC])(\d{8})$/);
+  if (!m) return null;
+  const [, underlying, yy, mm, dd, pc, strikeStr] = m;
+  const year = 2000 + parseInt(yy, 10);
+  const month = parseInt(mm, 10);
+  const day = parseInt(dd, 10);
+  const strike = parseInt(strikeStr, 10) / 1000;
+  const expiry = new Date(year, month - 1, day).toLocaleDateString("en-US", {
+    month: "short", day: "numeric", year: "numeric",
+  });
+  return { underlying, expiry, type: pc === "P" ? "Put" : "Call", strike };
+}
+
+// ──────────────────────────────────────────
 // Tradier
 // ──────────────────────────────────────────
 async function fetchTradier(apiToken: string) {
@@ -90,10 +126,15 @@ async function fetchTradier(apiToken: string) {
 
   const positions = positionList.map((p) => {
     const price = priceMap[p.symbol] ?? 0;
-    const value = price * p.quantity;
-    const costBasis = p.cost_basis;
+    const isOpt = isOptionSymbol(p.symbol);
+    // Options: Tradier quotes price per share; 1 contract = 100 shares
+    const multiplier = isOpt ? 100 : 1;
+    const value = price * p.quantity * multiplier;
+    const costBasis = p.cost_basis; // Tradier returns total cost basis (already ×100 for options)
     totalValue += value;
     totalCostBasis += costBasis;
+
+    const optionDetails = isOpt ? parseOptionSymbol(p.symbol) : null;
 
     return {
       symbol: p.symbol,
@@ -104,6 +145,8 @@ async function fetchTradier(apiToken: string) {
       gainLoss: value - costBasis,
       gainLossPct: costBasis > 0 ? ((value - costBasis) / costBasis) * 100 : 0,
       dayChangePct: changeMap[p.symbol] ?? 0,
+      isOption: isOpt,
+      optionDetails,
     };
   });
 

@@ -1,4 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
+import { isOptionSymbol, parseOptionSymbol } from "./stocks";
 
 const router: IRouter = Router();
 
@@ -55,6 +56,76 @@ async function tarsGet(path: string): Promise<unknown> {
   return res.json();
 }
 
+async function fetchTradierPositions() {
+  const apiToken = process.env.TRADIER_API_TOKEN;
+  if (!apiToken) return null;
+
+  const baseUrl = process.env.TRADIER_API_URL ?? "https://api.tradier.com/v1";
+  const accountId = process.env.TRADIER_ACCOUNT_ID ?? "me";
+
+  const posRes = await fetch(`${baseUrl}/accounts/${accountId}/positions`, {
+    headers: { Authorization: `Bearer ${apiToken}`, Accept: "application/json" },
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!posRes.ok) return null;
+
+  const posData = await posRes.json() as {
+    positions?: {
+      position?: {
+        symbol: string; quantity: number; cost_basis: number; date_acquired: string;
+      }[] | { symbol: string; quantity: number; cost_basis: number; date_acquired: string; };
+    };
+  };
+
+  const raw = posData.positions?.position;
+  const list = raw ? (Array.isArray(raw) ? raw : [raw]) : [];
+  if (list.length === 0) return { positions: [], totalValue: 0, totalCostBasis: 0, totalGainLoss: 0 };
+
+  // Fetch quotes
+  const symbols = list.map((p) => p.symbol).join(",");
+  const qRes = await fetch(`${baseUrl}/markets/quotes?symbols=${encodeURIComponent(symbols)}`, {
+    headers: { Authorization: `Bearer ${apiToken}`, Accept: "application/json" },
+    signal: AbortSignal.timeout(10_000),
+  });
+
+  const priceMap: Record<string, number> = {};
+  const changeMap: Record<string, number> = {};
+  if (qRes.ok) {
+    const qData = await qRes.json() as {
+      quotes?: { quote?: { symbol: string; last: number; change_percentage: number }[] | { symbol: string; last: number; change_percentage: number } };
+    };
+    const rawQ = qData.quotes?.quote;
+    const quotes = rawQ ? (Array.isArray(rawQ) ? rawQ : [rawQ]) : [];
+    for (const q of quotes) { priceMap[q.symbol] = q.last; changeMap[q.symbol] = q.change_percentage; }
+  }
+
+  let totalValue = 0, totalCostBasis = 0;
+  const positions = list.map((p) => {
+    const price = priceMap[p.symbol] ?? 0;
+    const isOpt = isOptionSymbol(p.symbol);
+    const multiplier = isOpt ? 100 : 1;
+    const value = price * p.quantity * multiplier;
+    const costBasis = p.cost_basis;
+    totalValue += value;
+    totalCostBasis += costBasis;
+    return {
+      symbol: p.symbol,
+      quantity: p.quantity,
+      currentPrice: price,
+      value,
+      costBasis,
+      gainLoss: value - costBasis,
+      gainLossPct: costBasis > 0 ? ((value - costBasis) / costBasis) * 100 : 0,
+      dayChangePct: changeMap[p.symbol] ?? 0,
+      isOption: isOpt,
+      optionDetails: isOpt ? parseOptionSymbol(p.symbol) : null,
+      dateAcquired: p.date_acquired,
+    };
+  });
+
+  return { positions, totalValue, totalCostBasis, totalGainLoss: totalValue - totalCostBasis };
+}
+
 router.get("/tars/snapshot", async (_req: Request, res: Response) => {
   const password = process.env.TARS_PASSWORD;
   if (!password) {
@@ -63,12 +134,13 @@ router.get("/tars/snapshot", async (_req: Request, res: Response) => {
   }
 
   try {
-    const [account, metrics, engine, positions, flowAnalyses] = await Promise.all([
+    const [account, metrics, engine, positions, flowAnalyses, tradierData] = await Promise.all([
       tarsGet("/account") as Promise<Record<string, unknown>>,
       tarsGet("/metrics") as Promise<Record<string, unknown>>,
       tarsGet("/engine/status") as Promise<Record<string, unknown>>,
       tarsGet("/positions") as Promise<unknown[]>,
       tarsGet("/flow-analyses?limit=10") as Promise<unknown[]>,
+      fetchTradierPositions().catch(() => null),
     ]);
 
     res.json({
@@ -77,6 +149,7 @@ router.get("/tars/snapshot", async (_req: Request, res: Response) => {
       engine,
       positions,
       recentAnalyses: Array.isArray(flowAnalyses) ? flowAnalyses.slice(0, 10) : [],
+      tradierHoldings: tradierData,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
