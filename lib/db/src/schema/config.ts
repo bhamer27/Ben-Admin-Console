@@ -1,4 +1,4 @@
-import { pgTable, varchar, timestamp, integer, serial } from "drizzle-orm/pg-core";
+import { pgTable, varchar, timestamp, integer, serial, jsonb, text } from "drizzle-orm/pg-core";
 
 export const siteConfigTable = pgTable("site_config", {
   key: varchar("key", { length: 100 }).primaryKey(),
@@ -55,3 +55,67 @@ export const permitradarCityRequestsTable = pgTable("permitradar_city_requests",
 
 export type PermitRadarCityRequest = typeof permitradarCityRequestsTable.$inferSelect;
 export type InsertPermitRadarCityRequest = typeof permitradarCityRequestsTable.$inferInsert;
+
+// ─────────────────────────────────────────────────────────────────
+// Kowalski Trading Engine tables
+// ─────────────────────────────────────────────────────────────────
+
+// Flow alerts from Unusual Whales
+export const flowAlertsTable = pgTable("flow_alerts", {
+  id: varchar("id", { length: 100 }).primaryKey(), // UW alert ID
+  ticker: varchar("ticker", { length: 20 }).notNull(),
+  direction: varchar("direction", { length: 10 }).notNull(), // call/put
+  premium: integer("premium").notNull(),
+  dte: integer("dte").notNull(),
+  strike: integer("strike"),
+  expiry: varchar("expiry", { length: 20 }),
+  ivRank: integer("iv_rank"),
+  delta: varchar("delta", { length: 10 }),
+  uwSignals: jsonb("uw_signals").notNull().default([]),
+  analyzedAt: timestamp("analyzed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type FlowAlert = typeof flowAlertsTable.$inferSelect;
+export type InsertFlowAlert = typeof flowAlertsTable.$inferInsert;
+
+// Kowalski's analysis/decision on each signal
+export const signalDecisionsTable = pgTable("signal_decisions", {
+  id: serial("id").primaryKey(),
+  alertId: varchar("alert_id", { length: 100 }).notNull().references(() => flowAlertsTable.id),
+  decision: varchar("decision", { length: 10 }).notNull(), // TAKE / SKIP
+  reasoning: text("reasoning").notNull(),
+  score: integer("score"), // 0-100 Kowalski's confidence
+  rejectionReason: varchar("rejection_reason", { length: 500 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type SignalDecision = typeof signalDecisionsTable.$inferSelect;
+export type InsertSignalDecision = typeof signalDecisionsTable.$inferInsert;
+
+// Open options positions
+export const optionsPositionsTable = pgTable("options_positions", {
+  id: serial("id").primaryKey(),
+  alertId: varchar("alert_id", { length: 100 }),
+  ticker: varchar("ticker", { length: 20 }).notNull(),
+  optionSymbol: varchar("option_symbol", { length: 30 }).notNull(),
+  direction: varchar("direction", { length: 10 }).notNull(),
+  strike: integer("strike").notNull(),
+  expiry: varchar("expiry", { length: 20 }).notNull(),
+  contracts: integer("contracts").notNull(),
+  entryPrice: varchar("entry_price", { length: 20 }).notNull(),
+  stopPrice: varchar("stop_price", { length: 20 }).notNull(),
+  t1Price: varchar("t1_price", { length: 20 }).notNull(),
+  t2Price: varchar("t2_price", { length: 20 }).notNull(),
+  currentPrice: varchar("current_price", { length: 20 }),
+  status: varchar("status", { length: 20 }).notNull().default("open"), // open/closed
+  t1Hit: integer("t1_hit").default(0), // 0=false, 1=true
+  closedAt: timestamp("closed_at", { withTimezone: true }),
+  closeReason: varchar("close_reason", { length: 100 }),
+  pnlDollars: varchar("pnl_dollars", { length: 20 }),
+  pnlPct: varchar("pnl_pct", { length: 20 }),
+  openedAt: timestamp("opened_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type OptionsPosition = typeof optionsPositionsTable.$inferSelect;
+export type InsertOptionsPosition = typeof optionsPositionsTable.$inferInsert;

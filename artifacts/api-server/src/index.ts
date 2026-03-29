@@ -1,5 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { startUwPoller } from "./lib/uwPoller.js";
+import { startPositionMonitor } from "./lib/positionMonitor.js";
 
 // Warn at startup if ADMIN_USER_ID is not configured.
 // BenAdmin is a private single-user console — without this, the first user
@@ -28,4 +30,6 @@ if (Number.isNaN(port) || port <= 0) {
 
 app.listen(port, () => {
   logger.info({ port }, "Server listening");
+  startUwPoller();
+  startPositionMonitor();
 });
