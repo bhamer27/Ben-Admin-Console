@@ -16,6 +16,7 @@ import type { AuthUser } from "@workspace/replit-auth-web";
 interface SidebarProps {
   user: AuthUser | null;
   logout: () => void;
+  onNavClick?: () => void;
 }
 
 const navItems = [
@@ -28,7 +29,7 @@ const navItems = [
   { href: "/stocks", label: "Public Portfolio", icon: LineChart },
 ];
 
-export function Sidebar({ user, logout }: SidebarProps) {
+export function Sidebar({ user, logout, onNavClick }: SidebarProps) {
   const [location] = useLocation();
 
   return (
@@ -47,6 +48,7 @@ export function Sidebar({ user, logout }: SidebarProps) {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavClick}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all duration-200 group",
                 isActive 
@@ -79,7 +81,7 @@ export function Sidebar({ user, logout }: SidebarProps) {
           </div>
         </div>
         <button
-          onClick={logout}
+          onClick={() => { onNavClick?.(); logout(); }}
           className="mt-2 flex w-full items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground rounded-md hover:bg-destructive/10 hover:text-destructive transition-colors"
         >
           <LogOut className="h-4 w-4" />

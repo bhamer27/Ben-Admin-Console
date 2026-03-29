@@ -1,9 +1,10 @@
-import { ReactNode, useState, useCallback } from "react";
+import { ReactNode, useState } from "react";
 import { useLocation } from "wouter";
 import { Sidebar } from "./Sidebar";
 import { ChatSidebar } from "../ChatSidebar";
 import { Button } from "@/components/ui/button";
-import { MessageSquare } from "lucide-react";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { MessageSquare, Menu } from "lucide-react";
 import type { AuthUser } from "@workspace/replit-auth-web";
 
 interface ShellProps {
@@ -15,21 +16,46 @@ interface ShellProps {
 
 export function Shell({ children, user, logout, tabData }: ShellProps) {
   const [chatOpen, setChatOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
   const [location] = useLocation();
 
-  // Derive tab name from current route
   const tabName = location.replace("/", "") || "overview";
 
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden font-sans selection:bg-primary/20">
-      <Sidebar user={user} logout={logout} />
+
+      {/* Desktop sidebar — hidden on mobile */}
+      <div className="hidden md:flex">
+        <Sidebar user={user} logout={logout} />
+      </div>
+
+      {/* Mobile sidebar — sheet drawer */}
+      <Sheet open={navOpen} onOpenChange={setNavOpen}>
+        <SheetContent side="left" className="p-0 w-64 bg-sidebar border-r border-sidebar-border [&>button]:hidden">
+          <Sidebar user={user} logout={logout} onNavClick={() => setNavOpen(false)} />
+        </SheetContent>
+      </Sheet>
 
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         {/* Subtle top gradient */}
         <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none z-0" />
 
-        {/* Top bar with chat toggle */}
-        <div className="relative z-10 flex items-center justify-end px-6 md:px-8 lg:px-10 pt-4 pb-0">
+        {/* Top bar */}
+        <div className="relative z-10 flex items-center justify-between px-4 md:px-8 lg:px-10 pt-4 pb-0">
+          {/* Hamburger — mobile only */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="md:hidden -ml-1 h-8 w-8 p-0"
+            onClick={() => setNavOpen(true)}
+          >
+            <Menu className="h-5 w-5" />
+            <span className="sr-only">Open menu</span>
+          </Button>
+
+          {/* Spacer on desktop so chat button stays right-aligned */}
+          <div className="hidden md:block" />
+
           <Button
             variant={chatOpen ? "default" : "outline"}
             size="sm"
@@ -42,14 +68,14 @@ export function Shell({ children, user, logout, tabData }: ShellProps) {
         </div>
 
         <div className="flex flex-1 min-h-0">
-          <div className="flex-1 overflow-y-auto z-10 p-6 md:p-8 lg:p-10 pt-4">
+          <div className="flex-1 overflow-y-auto z-10 p-4 md:p-8 lg:p-10 pt-4">
             <div className="max-w-6xl mx-auto w-full">
               {children}
             </div>
           </div>
 
           {chatOpen && (
-            <div className="w-[360px] shrink-0 flex flex-col overflow-hidden z-10">
+            <div className="w-[320px] md:w-[360px] shrink-0 flex flex-col overflow-hidden z-10">
               <ChatSidebar
                 tab={tabName}
                 tabData={tabData}
