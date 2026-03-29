@@ -24,7 +24,7 @@ const navItems = [
   { href: "/marketing", label: "Marketing", icon: Megaphone },
   { href: "/products", label: "Products", icon: LayoutGrid },
   { href: "/kalshi", label: "Kalshi Bot", icon: TrendingUp },
-  { href: "/tars", label: "Tradier Portfolio", icon: Cpu },
+  { href: "/tars", label: "Tars", icon: Cpu },
   { href: "/stocks", label: "Public Portfolio", icon: LineChart },
 ];
 

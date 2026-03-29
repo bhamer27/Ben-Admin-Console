@@ -1,29 +1,10 @@
-import { LineChart, RefreshCw, TrendingUp, TrendingDown, DollarSign, BarChart2 } from "lucide-react";
+import { RefreshCw, TrendingUp, TrendingDown, DollarSign, BarChart2 } from "lucide-react";
 import { MetricCard } from "@/components/MetricCard";
 import { DataSection } from "@/components/DataSection";
 import { useFetch } from "@/lib/useFetch";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-
-interface Position {
-  symbol: string;
-  quantity: number;
-  currentPrice: number;
-  value: number;
-  costBasis: number;
-  gainLoss: number;
-  gainLossPct: number;
-  dayChangePct: number;
-}
-
-interface TradierData {
-  positions: Position[];
-  totalValue: number;
-  totalCostBasis: number;
-  totalGainLoss: number;
-}
 
 interface PublicHolding {
   symbol: string;
@@ -60,8 +41,7 @@ function GainLossBadge({ value, pct }: { value: number; pct: number }) {
   );
 }
 
-function PositionRow({ pos }: { pos: Position | PublicHolding }) {
-  const isPos = pos.gainLoss >= 0;
+function PositionRow({ pos }: { pos: PublicHolding }) {
   return (
     <div className="px-6 py-3 flex items-center justify-between hover:bg-secondary/30 transition-colors">
       <div className="flex items-center gap-3">
@@ -70,8 +50,8 @@ function PositionRow({ pos }: { pos: Position | PublicHolding }) {
         </div>
         <div>
           <p className="text-sm font-semibold">{pos.symbol}</p>
-          {"name" in pos && pos.name !== pos.symbol && (
-            <p className="text-xs text-muted-foreground">{(pos as PublicHolding).name}</p>
+          {pos.name !== pos.symbol && (
+            <p className="text-xs text-muted-foreground">{pos.name}</p>
           )}
           <p className="text-xs text-muted-foreground">{pos.quantity} shares @ ${pos.currentPrice.toFixed(2)}</p>
         </div>
@@ -85,21 +65,7 @@ function PositionRow({ pos }: { pos: Position | PublicHolding }) {
 }
 
 export default function Stocks() {
-  const tradier = useFetch<TradierData>("/api/stocks/tradier", { refreshInterval: 5 * 60_000 });
   const publicCom = useFetch<PublicData>("/api/stocks/public", { refreshInterval: 5 * 60_000 });
-
-  const totalValue =
-    (tradier.data?.totalValue ?? 0) + (publicCom.data?.portfolioValue ?? 0);
-
-  const totalGainLoss =
-    (tradier.data?.totalGainLoss ?? 0) + (publicCom.data?.totalGainLoss ?? 0);
-
-  function refreshAll() {
-    tradier.refetch();
-    publicCom.refetch();
-  }
-
-  const anyLoading = tradier.loading || publicCom.loading;
 
   return (
     <div className="space-y-8 pb-10">
@@ -108,133 +74,59 @@ export default function Stocks() {
           <h1 className="text-3xl font-bold tracking-tight mb-2">Public Portfolio</h1>
           <p className="text-muted-foreground">Holdings from Public.com.</p>
         </div>
-        {!anyLoading && (
-          <Button variant="outline" size="sm" onClick={refreshAll}>
+        {!publicCom.loading && (
+          <Button variant="outline" size="sm" onClick={publicCom.refetch}>
             <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-            Refresh All
+            Refresh
           </Button>
         )}
       </div>
 
-      {/* Aggregate overview cards when at least one source has data */}
-      {(tradier.data || publicCom.data) && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {publicCom.data && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <MetricCard
-            title="Total Portfolio Value"
-            value={fmtMoney(totalValue)}
-            subtitle="Tradier + Public.com"
+            title="Portfolio Value"
+            value={fmtMoney(publicCom.data.portfolioValue)}
+            subtitle="Total market value"
             icon={<DollarSign className="h-5 w-5" />}
           />
           <MetricCard
-            title="Total Gain / Loss"
-            value={fmtMoney(Math.abs(totalGainLoss))}
-            subtitle="Combined unrealized P&L"
+            title="Total Return"
+            value={fmtMoney(Math.abs(publicCom.data.totalGainLoss))}
+            subtitle={`${fmtPct(publicCom.data.totalReturnPct)} all-time`}
             icon={<BarChart2 className="h-5 w-5" />}
-            trend={{ value: fmtMoney(Math.abs(totalGainLoss)), isPositive: totalGainLoss >= 0 }}
-          />
-          <MetricCard
-            title="Tradier Value"
-            value={tradier.data ? fmtMoney(tradier.data.totalValue) : "—"}
-            subtitle={tradier.data ? `${tradier.data.positions.length} positions` : "Not configured"}
-            icon={<LineChart className="h-5 w-5" />}
+            trend={{ value: fmtPct(publicCom.data.totalReturnPct), isPositive: publicCom.data.totalGainLoss >= 0 }}
           />
         </div>
       )}
 
-      <Tabs defaultValue="tradier">
-        <TabsList className="mb-6">
-          <TabsTrigger value="tradier">Tradier</TabsTrigger>
-          <TabsTrigger value="public">Public.com</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="tradier">
-          <DataSection
-            loading={tradier.loading}
-            error={tradier.error}
-            configured={tradier.configured}
-            onRefresh={tradier.refetch}
-            configNote="Set TRADIER_API_TOKEN (and optionally TRADIER_ACCOUNT_ID) to enable Tradier portfolio data."
-          >
-            {tradier.data && (
-              <>
-                {tradier.data.positions.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-border bg-card/30 p-10 text-center text-muted-foreground">
-                    No positions found in this Tradier account.
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-border bg-card">
-                    <div className="p-6 border-b border-border flex items-center justify-between">
-                      <div>
-                        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Positions</h2>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-muted-foreground">Total Value</p>
-                        <p className="text-lg font-semibold font-mono">{fmtMoney(tradier.data.totalValue)}</p>
-                        <GainLossBadge value={tradier.data.totalGainLoss} pct={tradier.data.totalCostBasis > 0 ? (tradier.data.totalGainLoss / tradier.data.totalCostBasis) * 100 : 0} />
-                      </div>
-                    </div>
-                    <div className="divide-y divide-border">
-                      {tradier.data.positions
-                        .sort((a, b) => b.value - a.value)
-                        .map((pos) => (
-                          <PositionRow key={pos.symbol} pos={pos} />
-                        ))}
-                    </div>
-                  </div>
-                )}
-                <Badge variant="outline" className="text-xs">Auto-refreshes every 5 min</Badge>
-              </>
-            )}
-          </DataSection>
-        </TabsContent>
-
-        <TabsContent value="public">
-          <DataSection
-            loading={publicCom.loading}
-            error={publicCom.error}
-            configured={publicCom.configured}
-            onRefresh={publicCom.refetch}
-            configNote="Set PUBLIC_COM_API_KEY to enable Public.com portfolio data."
-          >
-            {publicCom.data && (
-              <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <MetricCard
-                    title="Portfolio Value"
-                    value={fmtMoney(publicCom.data.portfolioValue)}
-                    subtitle="Total market value"
-                    icon={<DollarSign className="h-5 w-5" />}
-                  />
-                  <MetricCard
-                    title="Total Return"
-                    value={fmtMoney(Math.abs(publicCom.data.totalGainLoss))}
-                    subtitle={`${fmtPct(publicCom.data.totalReturnPct)} all-time`}
-                    icon={<BarChart2 className="h-5 w-5" />}
-                    trend={{ value: fmtPct(publicCom.data.totalReturnPct), isPositive: publicCom.data.totalGainLoss >= 0 }}
-                  />
+      <DataSection
+        loading={publicCom.loading}
+        error={publicCom.error}
+        configured={publicCom.configured}
+        onRefresh={publicCom.refetch}
+        configNote="Set PUBLIC_COM_API_KEY to enable Public.com portfolio data."
+      >
+        {publicCom.data && (
+          <>
+            {publicCom.data.holdings.length > 0 && (
+              <div className="rounded-xl border border-border bg-card">
+                <div className="p-6 border-b border-border">
+                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Holdings</h2>
                 </div>
-
-                {publicCom.data.holdings.length > 0 && (
-                  <div className="rounded-xl border border-border bg-card">
-                    <div className="p-6 border-b border-border">
-                      <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Holdings</h2>
-                    </div>
-                    <div className="divide-y divide-border">
-                      {publicCom.data.holdings
-                        .sort((a, b) => b.value - a.value)
-                        .map((h) => (
-                          <PositionRow key={h.symbol} pos={h} />
-                        ))}
-                    </div>
-                  </div>
-                )}
-
-                <Badge variant="outline" className="text-xs">Auto-refreshes every 5 min</Badge>
-              </>
+                <div className="divide-y divide-border">
+                  {publicCom.data.holdings
+                    .sort((a, b) => b.value - a.value)
+                    .map((h) => (
+                      <PositionRow key={h.symbol} pos={h} />
+                    ))}
+                </div>
+              </div>
             )}
-          </DataSection>
-        </TabsContent>
-      </Tabs>
+            <Badge variant="outline" className="text-xs">Auto-refreshes every 5 min</Badge>
+          </>
+        )}
+      </DataSection>
     </div>
   );
 }
