@@ -25,14 +25,14 @@ export default function Stripe() {
   );
 
   return (
-    <div className="space-y-8 pb-10">
-      <div className="flex items-start justify-between">
+    <div className="space-y-6 pb-10">
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Stripe</h1>
-          <p className="text-muted-foreground">Revenue and subscriber metrics across your Stripe accounts.</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-1.5">Stripe</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">Revenue and subscriber metrics across your Stripe accounts.</p>
         </div>
         {!loading && (
-          <Button variant="outline" size="sm" onClick={refetch}>
+          <Button variant="outline" size="sm" onClick={refetch} className="flex-shrink-0">
             <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
             Refresh
           </Button>
@@ -48,7 +48,7 @@ export default function Stripe() {
       >
         {data && (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <MetricCard
                 title="MRR"
                 value={fmtMoney(data.mrr)}
@@ -62,7 +62,7 @@ export default function Stripe() {
                 icon={<DollarSign className="h-5 w-5" />}
               />
               <MetricCard
-                title="New Subscribers"
+                title="New Subs"
                 value={String(data.newSubscribers30d)}
                 subtitle="Last 30 days"
                 icon={<Users className="h-5 w-5" />}
@@ -77,7 +77,7 @@ export default function Stripe() {
 
             {Object.keys(data.byPriceId).length > 0 && (
               <div className="rounded-xl border border-border bg-card">
-                <div className="p-6 border-b border-border">
+                <div className="p-4 sm:p-6 border-b border-border">
                   <div className="flex items-center gap-2">
                     <Receipt className="h-4 w-4 text-muted-foreground" />
                     <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">By Price ID</h2>
@@ -87,18 +87,18 @@ export default function Stripe() {
                   {Object.entries(data.byPriceId)
                     .sort(([, a], [, b]) => b.mrr - a.mrr)
                     .map(([priceId, info]) => (
-                      <div key={priceId} className="px-6 py-4 flex items-center justify-between hover:bg-secondary/30 transition-colors">
-                        <div>
-                          <p className="text-sm font-medium text-foreground">{info.name}</p>
-                          <p className="text-xs text-muted-foreground font-mono">{priceId}</p>
+                      <div key={priceId} className="px-4 sm:px-6 py-3.5 flex items-start sm:items-center justify-between gap-3 hover:bg-secondary/30 transition-colors">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-foreground truncate">{info.name}</p>
+                          <p className="text-xs text-muted-foreground font-mono truncate">{priceId}</p>
                         </div>
-                        <div className="flex items-center gap-6 text-right">
+                        <div className="flex items-center gap-4 sm:gap-6 text-right flex-shrink-0">
                           <div>
                             <p className="text-xs text-muted-foreground">MRR</p>
                             <p className="text-sm font-semibold font-mono">{fmtMoney(info.mrr)}</p>
                           </div>
                           <div>
-                            <p className="text-xs text-muted-foreground">Subscribers</p>
+                            <p className="text-xs text-muted-foreground">Subs</p>
                             <p className="text-sm font-semibold font-mono">{info.activeCount}</p>
                           </div>
                         </div>

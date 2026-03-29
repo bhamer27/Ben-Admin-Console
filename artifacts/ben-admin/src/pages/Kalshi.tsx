@@ -82,9 +82,9 @@ function OverviewView({ data }: { data: KalshiStats }) {
   const pnlPositive = data.unrealizedPnl >= 0;
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard title="Cash Balance" value={fmtMoney(data.balance)} subtitle="Available to trade" icon={<DollarSign className="h-5 w-5" />} />
-        <MetricCard title="Total Invested" value={fmtMoney(data.totalInvested)} subtitle={`${data.investedPct}% of portfolio`} icon={<Activity className="h-5 w-5" />} />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <MetricCard title="Cash" value={fmtMoney(data.balance)} subtitle="Available to trade" icon={<DollarSign className="h-5 w-5" />} />
+        <MetricCard title="Invested" value={fmtMoney(data.totalInvested)} subtitle={`${data.investedPct}% of portfolio`} icon={<Activity className="h-5 w-5" />} />
         <MetricCard
           title="Unrealized P&L"
           value={fmtMoney(Math.abs(data.unrealizedPnl))}
@@ -92,7 +92,7 @@ function OverviewView({ data }: { data: KalshiStats }) {
           icon={pnlPositive ? <TrendingUp className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />}
           trend={{ value: fmtMoney(Math.abs(data.unrealizedPnl)), isPositive: pnlPositive }}
         />
-        <MetricCard title="Open Positions" value={String(data.openPositions)} subtitle={`${data.cashPct}% cash`} icon={<Target className="h-5 w-5" />} />
+        <MetricCard title="Positions" value={String(data.openPositions)} subtitle={`${data.cashPct}% cash`} icon={<Target className="h-5 w-5" />} />
       </div>
 
       <div className="rounded-xl border border-border bg-card p-5">
@@ -168,10 +168,10 @@ function PnlView({ data }: { data: KalshiStats }) {
       <div className="space-y-2">
         <p className="text-muted-foreground text-sm font-medium uppercase tracking-wide">Total Unrealized Return</p>
         <div className="flex items-baseline gap-4">
-          <span className={cn("text-6xl font-bold tracking-tight", pnlPositive ? "text-emerald-500" : "text-destructive")}>
+          <span className={cn("text-4xl sm:text-6xl font-bold tracking-tight", pnlPositive ? "text-emerald-500" : "text-destructive")}>
             {pnlPositive ? "+" : "−"}${Math.abs(data.unrealizedPnl).toFixed(2)}
           </span>
-          <span className={cn("text-2xl font-medium", pnlPositive ? "text-emerald-500/80" : "text-destructive/80")}>
+          <span className={cn("text-xl sm:text-2xl font-medium", pnlPositive ? "text-emerald-500/80" : "text-destructive/80")}>
             {pnlPositive ? "+" : ""}{returnPct.toFixed(1)}%
           </span>
         </div>
@@ -457,14 +457,14 @@ export default function Kalshi() {
   );
 
   return (
-    <div className="space-y-8 pb-10">
-      <div className="flex items-start justify-between">
+    <div className="space-y-6 pb-10">
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Kalshi Bot</h1>
-          <p className="text-muted-foreground">Live prediction market positions. Direct Kalshi API.</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-1.5">Kalshi Bot</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">Live prediction market positions. Direct Kalshi API.</p>
         </div>
         {!loading && (
-          <Button variant="outline" size="sm" onClick={refetch}>
+          <Button variant="outline" size="sm" onClick={refetch} className="flex-shrink-0">
             <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
             Refresh
           </Button>

@@ -96,34 +96,29 @@ export default function Tars() {
   const positions = positionsData?.positions ?? [];
   const signals = signalsData?.signals ?? [];
 
-  function handleRefresh() {
-    refetchStatus();
-  }
-
   return (
-    <div className="space-y-8 pb-10">
-      <div className="flex items-start justify-between">
+    <div className="space-y-6 pb-10">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Kowalski Trading Engine</h1>
-          <p className="text-muted-foreground">
-            Autonomous options trading via Unusual Whales flow signals.
-            {status && (
-              <Badge variant={status.running ? "default" : "destructive"} className="ml-2">
-                {status.running ? "Engine Running" : "Engine Stopped"}
-              </Badge>
-            )}
-          </p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-1.5">Kowalski</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">Autonomous options trading via Unusual Whales signals.</p>
+          {status && (
+            <Badge variant={status.running ? "default" : "destructive"} className="mt-2">
+              {status.running ? "Engine Running" : "Engine Stopped"}
+            </Badge>
+          )}
         </div>
-        <Button variant="outline" size="sm" onClick={handleRefresh} className="gap-2">
+        <Button variant="outline" size="sm" onClick={refetchStatus} className="flex-shrink-0 gap-2">
           <RefreshCw className="h-4 w-4" />
-          Refresh
+          <span className="hidden sm:inline">Refresh</span>
         </Button>
       </div>
 
       <DataSection loading={posLoading} error={posError?.message}>
         {/* Metrics row */}
         {metrics && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <MetricCard
               title="Total P&L"
               value={fmtMoney(metrics.totalPnlDollars)}
@@ -138,15 +133,15 @@ export default function Tars() {
               icon={<Target className="h-5 w-5" />}
             />
             <MetricCard
-              title="Open Positions"
+              title="Open"
               value={String(metrics.openPositions)}
               subtitle="Max 3 allowed"
               icon={<Activity className="h-5 w-5" />}
             />
             <MetricCard
-              title="Signals Analyzed"
+              title="Signals"
               value={String(metrics.totalSignalsAnalyzed)}
-              subtitle={`${metrics.totalTaken} taken · avg score ${metrics.avgScore}`}
+              subtitle={`${metrics.totalTaken} taken · avg ${metrics.avgScore}`}
               icon={<Zap className="h-5 w-5" />}
             />
           </div>
@@ -154,31 +149,31 @@ export default function Tars() {
 
         {/* Engine status bar */}
         {status && (
-          <div className="rounded-xl border border-border bg-card p-4 flex flex-wrap items-center gap-6">
+          <div className="rounded-xl border border-border bg-card p-4 flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
               <div className={cn("h-2 w-2 rounded-full", status.running ? "bg-emerald-500 shadow-[0_0_6px_theme(colors.emerald.500)]" : "bg-destructive")} />
               <Cpu className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">{status.running ? "Engine Active" : "Engine Stopped"}</span>
+              <span className="text-sm font-medium">{status.running ? "Active" : "Stopped"}</span>
             </div>
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
               <Clock className="h-3.5 w-3.5" />
-              Last poll: {status.lastPollAt ? timeAgo(status.lastPollAt) : "never"}
+              <span>Last poll: {status.lastPollAt ? timeAgo(status.lastPollAt) : "never"}</span>
             </div>
             <div className="text-sm text-muted-foreground">
-              Alerts processed: <span className="font-mono">{status.alertsProcessed}</span>
+              Alerts: <span className="font-mono">{status.alertsProcessed}</span>
             </div>
           </div>
         )}
 
         {/* Open Positions */}
         <div className="rounded-xl border border-border bg-card">
-          <div className="px-6 py-4 border-b border-border flex items-center gap-2">
+          <div className="px-4 sm:px-6 py-4 border-b border-border flex items-center gap-2">
             <Activity className="h-4 w-4 text-muted-foreground" />
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Open Positions</h2>
           </div>
           {positions.length === 0 ? (
             <div className="px-6 py-8 text-center text-muted-foreground text-sm">
-              No open positions right now. Engine is scanning for opportunities.
+              No open positions. Engine is scanning for opportunities.
             </div>
           ) : (
             <div className="divide-y divide-border">
@@ -189,9 +184,9 @@ export default function Tars() {
                 const pnlPct = currentPrice != null && entryPrice > 0 ? ((currentPrice - entryPrice) / entryPrice) * 100 : null;
                 const isWin = pnl != null && pnl >= 0;
                 return (
-                  <div key={pos.id} className="px-6 py-4 flex items-center justify-between hover:bg-secondary/30 transition-colors">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center flex-shrink-0">
+                  <div key={pos.id} className="px-4 sm:px-6 py-4 flex items-start sm:items-center justify-between gap-3 hover:bg-secondary/30 transition-colors">
+                    <div className="flex items-start gap-3 min-w-0 flex-1">
+                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-secondary flex items-center justify-center flex-shrink-0 mt-0.5 sm:mt-0">
                         <span className="text-xs font-bold font-mono">{pos.ticker}</span>
                       </div>
                       <div className="min-w-0">
@@ -211,22 +206,26 @@ export default function Tars() {
                           <span className="text-xs text-muted-foreground">${pos.strike} · {pos.expiry}</span>
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {pos.contracts} contracts · entry ${entryPrice.toFixed(2)} · stop ${parseFloat(pos.stopPrice).toFixed(2)}
+                          {pos.contracts}x · entry ${entryPrice.toFixed(2)} · stop ${parseFloat(pos.stopPrice).toFixed(2)}
                         </p>
-                        <p className="text-xs text-muted-foreground font-mono">{pos.optionSymbol}</p>
+                        <p className="text-xs text-muted-foreground font-mono truncate">{pos.optionSymbol}</p>
                       </div>
                     </div>
-                    <div className="text-right flex-shrink-0 ml-4">
+                    <div className="text-right flex-shrink-0">
                       {currentPrice != null && (
                         <p className="text-sm font-semibold font-mono">${currentPrice.toFixed(2)}</p>
                       )}
                       {pnl != null && (
                         <p className={cn("text-xs font-medium flex items-center justify-end gap-0.5", isWin ? "text-emerald-500" : "text-destructive")}>
                           {isWin ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                          {isWin ? "+" : ""}{fmtMoney(pnl)} ({pnlPct != null ? `${pnlPct.toFixed(1)}%` : "?"})
+                          {isWin ? "+" : ""}{fmtMoney(pnl)}
                         </p>
                       )}
-                      <p className="text-xs text-muted-foreground">T1: ${parseFloat(pos.t1Price).toFixed(2)} · T2: ${parseFloat(pos.t2Price).toFixed(2)}</p>
+                      {pnlPct != null && (
+                        <p className={cn("text-xs", isWin ? "text-emerald-500/70" : "text-destructive/70")}>
+                          {pnlPct >= 0 ? "+" : ""}{pnlPct.toFixed(1)}%
+                        </p>
+                      )}
                     </div>
                   </div>
                 );
@@ -238,44 +237,48 @@ export default function Tars() {
         {/* Recent Signal Analyses */}
         {signals.length > 0 && (
           <div className="rounded-xl border border-border bg-card">
-            <div className="px-6 py-4 border-b border-border flex items-center gap-2">
+            <div className="px-4 sm:px-6 py-4 border-b border-border flex items-center gap-2">
               <BarChart2 className="h-4 w-4 text-muted-foreground" />
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Recent Signal Analyses</h2>
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Recent Signals</h2>
             </div>
             <div className="divide-y divide-border">
               {signals.map((sig) => (
-                <div key={sig.id} className="px-6 py-2.5 flex items-center justify-between hover:bg-secondary/30 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <Badge
-                      variant={sig.decision === "TAKE" ? "default" : "secondary"}
-                      className={cn("text-xs", sig.decision === "TAKE" ? "bg-emerald-600" : "")}
-                    >
-                      {sig.decision}
-                    </Badge>
-                    <span className="text-sm font-mono">{sig.ticker ?? sig.alertId}</span>
-                    {sig.direction && (
-                      <Badge variant="outline" className={cn(
-                        "text-xs",
-                        sig.direction.toLowerCase() === "put" ? "border-red-500/40 text-red-400" : "border-emerald-500/40 text-emerald-400"
-                      )}>
-                        {sig.direction.toUpperCase()}
+                <div key={sig.id} className="px-4 sm:px-6 py-3 hover:bg-secondary/30 transition-colors">
+                  {/* Top row: decision + ticker + direction + score + time */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 flex-wrap min-w-0">
+                      <Badge
+                        variant={sig.decision === "TAKE" ? "default" : "secondary"}
+                        className={cn("text-xs flex-shrink-0", sig.decision === "TAKE" ? "bg-emerald-600" : "")}
+                      >
+                        {sig.decision}
                       </Badge>
-                    )}
-                    {sig.reasoning && (
-                      <span className="text-xs text-muted-foreground truncate max-w-[300px]">{sig.reasoning}</span>
-                    )}
+                      <span className="text-sm font-mono font-medium">{sig.ticker ?? sig.alertId}</span>
+                      {sig.direction && (
+                        <Badge variant="outline" className={cn(
+                          "text-xs flex-shrink-0",
+                          sig.direction.toLowerCase() === "put" ? "border-red-500/40 text-red-400" : "border-emerald-500/40 text-emerald-400"
+                        )}>
+                          {sig.direction.toUpperCase()}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {sig.score != null && (
+                        <span className={cn(
+                          "text-sm font-mono font-semibold",
+                          sig.score >= 85 ? "text-emerald-500" : sig.score >= 70 ? "text-yellow-500" : "text-muted-foreground"
+                        )}>
+                          {sig.score}
+                        </span>
+                      )}
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">{timeAgo(sig.createdAt)}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    {sig.score != null && (
-                      <span className={cn(
-                        "text-sm font-mono font-semibold",
-                        sig.score >= 85 ? "text-emerald-500" : sig.score >= 70 ? "text-yellow-500" : "text-muted-foreground"
-                      )}>
-                        {sig.score}
-                      </span>
-                    )}
-                    <span className="text-xs text-muted-foreground">{timeAgo(sig.createdAt)}</span>
-                  </div>
+                  {/* Reasoning on its own line */}
+                  {sig.reasoning && (
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2 sm:line-clamp-1">{sig.reasoning}</p>
+                  )}
                 </div>
               ))}
             </div>

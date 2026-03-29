@@ -5,6 +5,7 @@ import { useFetch } from "@/lib/useFetch";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 
 interface SearchConsoleData {
   clicks: number;
@@ -55,32 +56,37 @@ export default function Marketing() {
   const anyLoading = searchConsole.loading || googleAds.loading || instantly.loading;
 
   return (
-    <div className="space-y-8 pb-10">
-      <div className="flex items-start justify-between">
+    <div className="space-y-6 pb-10">
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Marketing</h1>
-          <p className="text-muted-foreground">Performance data from Search Console, Google Ads, and Instantly.ai.</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-1.5">Marketing</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">Performance data from Search Console, Google Ads, and Instantly.ai.</p>
         </div>
         {!anyLoading && (
-          <Button variant="outline" size="sm" onClick={refreshAll}>
+          <Button variant="outline" size="sm" onClick={refreshAll} className="flex-shrink-0">
             <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-            Refresh All
+            Refresh
           </Button>
         )}
       </div>
 
       <Tabs defaultValue="search-console">
-        <TabsList className="mb-6">
-          <TabsTrigger value="search-console" className="gap-2">
-            <Search className="h-3.5 w-3.5" /> Search Console
-          </TabsTrigger>
-          <TabsTrigger value="google-ads" className="gap-2">
-            <DollarSign className="h-3.5 w-3.5" /> Google Ads
-          </TabsTrigger>
-          <TabsTrigger value="instantly" className="gap-2">
-            <Mail className="h-3.5 w-3.5" /> Instantly.ai
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-1 px-1 mb-6">
+          <TabsList className="whitespace-nowrap">
+            <TabsTrigger value="search-console" className="gap-1.5">
+              <Search className="h-3.5 w-3.5" />
+              <span>Search Console</span>
+            </TabsTrigger>
+            <TabsTrigger value="google-ads" className="gap-1.5">
+              <DollarSign className="h-3.5 w-3.5" />
+              <span>Google Ads</span>
+            </TabsTrigger>
+            <TabsTrigger value="instantly" className="gap-1.5">
+              <Mail className="h-3.5 w-3.5" />
+              <span>Instantly</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="search-console">
           <DataSection
@@ -92,7 +98,7 @@ export default function Marketing() {
           >
             {searchConsole.data && (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                   <MetricCard
                     title="Total Clicks"
                     value={fmtNum(searchConsole.data.clicks)}
@@ -134,7 +140,7 @@ export default function Marketing() {
           >
             {googleAds.data && (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                   <MetricCard
                     title="Ad Spend"
                     value={fmtMoney(googleAds.data.spend)}
@@ -176,11 +182,11 @@ export default function Marketing() {
           >
             {instantly.data && (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                   <MetricCard
-                    title="Active Campaigns"
+                    title="Active"
                     value={String(instantly.data.activeCampaigns)}
-                    subtitle={`of ${instantly.data.totalCampaigns} total`}
+                    subtitle={`of ${instantly.data.totalCampaigns} campaigns`}
                     icon={<Megaphone className="h-5 w-5" />}
                   />
                   <MetricCard
@@ -192,29 +198,29 @@ export default function Marketing() {
                   <MetricCard
                     title="Open Rate"
                     value={fmtPct(instantly.data.openRate)}
-                    subtitle="Average across campaigns"
+                    subtitle="Avg across campaigns"
                     icon={<BarChart2 className="h-5 w-5" />}
                   />
                   <MetricCard
                     title="Reply Rate"
                     value={fmtPct(instantly.data.replyRate)}
-                    subtitle="Average across campaigns"
+                    subtitle="Avg across campaigns"
                     icon={<MousePointerClick className="h-5 w-5" />}
                   />
                 </div>
 
                 {instantly.data.campaigns.length > 0 && (
                   <div className="rounded-xl border border-border bg-card">
-                    <div className="p-5 border-b border-border">
+                    <div className="p-4 sm:p-5 border-b border-border">
                       <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Campaigns</h2>
                     </div>
                     <div className="divide-y divide-border">
                       {instantly.data.campaigns.map((c) => (
-                        <div key={c.id} className="px-5 py-3 flex items-center justify-between hover:bg-secondary/30 transition-colors">
-                          <p className="text-sm font-medium">{c.name}</p>
+                        <div key={c.id} className="px-4 sm:px-5 py-3 flex items-center justify-between gap-3 hover:bg-secondary/30 transition-colors">
+                          <p className="text-sm font-medium truncate">{c.name}</p>
                           <Badge
                             variant="outline"
-                            className={c.status === 1 ? "border-emerald-500/30 text-emerald-500 text-xs" : "text-xs"}
+                            className={cn(c.status === 1 ? "border-emerald-500/30 text-emerald-500 text-xs" : "text-xs", "flex-shrink-0")}
                           >
                             {c.status === 1 ? "active" : "paused"}
                           </Badge>

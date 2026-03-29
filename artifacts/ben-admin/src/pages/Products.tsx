@@ -118,9 +118,9 @@ function UserTable({ users, loading, error, configured, refetch, configNote }: {
             { label: "Paying", value: paying },
             { label: "Trial / Free", value: users.length - paying },
           ].map(({ label, value }) => (
-            <div key={label} className="rounded-xl border border-border bg-card p-4">
+            <div key={label} className="rounded-xl border border-border bg-card p-3 sm:p-4">
               <p className="text-xs text-muted-foreground mb-1">{label}</p>
-              <p className="text-2xl font-semibold font-mono">{value}</p>
+              <p className="text-xl sm:text-2xl font-semibold font-mono">{value}</p>
             </div>
           ))}
         </div>
@@ -135,33 +135,33 @@ function UserTable({ users, loading, error, configured, refetch, configNote }: {
         </div>
       )}
 
+      {/* Card list — works on all screen sizes */}
       {users.length > 0 && (
-        <div className="rounded-xl border border-border bg-card">
-          <div className="grid grid-cols-[1fr_1fr_auto_auto_auto] gap-0 px-5 py-2.5 border-b border-border bg-secondary/30">
-            {["Name / Email", "Plan", "Status", "Days as Customer", "Last Active"].map((h) => (
-              <p key={h} className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{h}</p>
-            ))}
-          </div>
-          <div className="divide-y divide-border">
-            {users.map((u) => {
-              const days = daysSince(u.created_at);
-              const lastActive = daysSince(u.last_active);
-              return (
-                <div key={u.id} className="grid grid-cols-[1fr_1fr_auto_auto_auto] gap-0 px-5 py-3 items-center hover:bg-secondary/20 transition-colors">
-                  <div>
-                    {u.name && <p className="text-sm font-medium">{u.name}</p>}
-                    <p className={cn("text-xs", u.name ? "text-muted-foreground" : "text-sm font-medium")}>{u.email ?? `ID: ${u.id}`}</p>
-                  </div>
-                  <PlanBadge plan={u.plan} />
-                  <StatusBadge status={u.subscription_status} />
-                  <p className="text-sm font-mono text-center">{days != null ? `${days}d` : "—"}</p>
-                  <p className="text-xs text-muted-foreground text-right">
-                    {lastActive != null ? `${lastActive}d ago` : u.last_active ? fmtDate(u.last_active) : "—"}
+        <div className="rounded-xl border border-border bg-card divide-y divide-border">
+          {users.map((u) => {
+            const days = daysSince(u.created_at);
+            const lastActive = daysSince(u.last_active);
+            return (
+              <div key={u.id} className="px-4 py-3 flex items-start justify-between gap-3 hover:bg-secondary/20 transition-colors">
+                <div className="min-w-0 flex-1">
+                  {u.name && <p className="text-sm font-medium truncate">{u.name}</p>}
+                  <p className={cn("truncate", u.name ? "text-xs text-muted-foreground" : "text-sm font-medium")}>
+                    {u.email ?? `ID: ${u.id}`}
                   </p>
+                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                    <PlanBadge plan={u.plan} />
+                    <StatusBadge status={u.subscription_status} />
+                    {days != null && (
+                      <span className="text-xs text-muted-foreground">{days}d customer</span>
+                    )}
+                  </div>
                 </div>
-              );
-            })}
-          </div>
+                <div className="text-right text-xs text-muted-foreground flex-shrink-0 mt-0.5">
+                  {lastActive != null ? `${lastActive}d ago` : u.last_active ? fmtDate(u.last_active) : "—"}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -207,7 +207,6 @@ function PermitRadarTab() {
 
   return (
     <div className="space-y-8">
-      {/* Users */}
       <div>
         <h2 className="text-lg font-semibold mb-4">Users</h2>
         <UserTable
@@ -220,7 +219,6 @@ function PermitRadarTab() {
         />
       </div>
 
-      {/* City Requests */}
       <div>
         <h2 className="text-lg font-semibold mb-4">City Requests</h2>
         {cities.data && (
@@ -231,15 +229,15 @@ function PermitRadarTab() {
               { label: "Added", value: cities.data.summary.added },
               { label: "Declined", value: cities.data.summary.declined },
             ].map(({ label, value }) => (
-              <div key={label} className="rounded-xl border border-border bg-card p-4">
+              <div key={label} className="rounded-xl border border-border bg-card p-3 sm:p-4">
                 <p className="text-xs text-muted-foreground mb-1">{label}</p>
-                <p className="text-2xl font-semibold font-mono">{value}</p>
+                <p className="text-xl sm:text-2xl font-semibold font-mono">{value}</p>
               </div>
             ))}
           </div>
         )}
 
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
           <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm text-muted-foreground">Sort:</span>
           {(["recent", "most-requested"] as CitySort[]).map((s) => (
@@ -260,28 +258,28 @@ function PermitRadarTab() {
             return (
               <div key={key}>
                 <button
-                  className="w-full px-5 py-3.5 flex items-center justify-between hover:bg-secondary/30 transition-colors text-left"
+                  className="w-full px-4 py-3.5 flex items-center justify-between hover:bg-secondary/30 transition-colors text-left"
                   onClick={() => setExpanded(isOpen ? null : key)}
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
                     <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-semibold">{g.city}{g.state ? `, ${g.state}` : ""}</p>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold truncate">{g.city}{g.state ? `, ${g.state}` : ""}</p>
                       <p className="text-xs text-muted-foreground">Last requested {fmtDate(g.latest)}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs">{g.count} {g.count === 1 ? "request" : "requests"}</Badge>
+                  <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                    <Badge variant="outline" className="text-xs">{g.count}</Badge>
                     {isOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                   </div>
                 </button>
                 {isOpen && (
-                  <div className="px-5 pb-4 space-y-2">
+                  <div className="px-4 pb-4 space-y-2">
                     {g.requests.map((req) => (
                       <div key={req.id} className="rounded-lg border border-border bg-secondary/20 p-3 flex items-start justify-between gap-3">
-                        <div>
+                        <div className="min-w-0 flex-1">
                           {req.contactName && <p className="text-sm font-medium">{req.contactName}</p>}
-                          {req.email && <p className="text-xs text-muted-foreground">{req.email}</p>}
+                          {req.email && <p className="text-xs text-muted-foreground truncate">{req.email}</p>}
                           {req.reason && <p className="text-xs text-muted-foreground mt-1 italic">"{req.reason}"</p>}
                           <p className="text-xs text-muted-foreground mt-1">{fmtDate(req.createdAt)}</p>
                         </div>
@@ -329,9 +327,9 @@ function RevooTab() {
               { label: "Activated", value: waitlist.data.summary.activated },
               { label: "Rejected", value: waitlist.data.summary.rejected },
             ].map(({ label, value }) => (
-              <div key={label} className="rounded-xl border border-border bg-card p-4">
+              <div key={label} className="rounded-xl border border-border bg-card p-3 sm:p-4">
                 <p className="text-xs text-muted-foreground mb-1">{label}</p>
-                <p className="text-2xl font-semibold font-mono">{value}</p>
+                <p className="text-xl sm:text-2xl font-semibold font-mono">{value}</p>
               </div>
             ))}
           </div>
@@ -342,19 +340,19 @@ function RevooTab() {
         {waitlist.data && waitlist.data.entries.length > 0 && (
           <div className="rounded-xl border border-border bg-card divide-y divide-border">
             {waitlist.data.entries.map((entry) => (
-              <div key={entry.id} className="px-5 py-3.5 flex items-start justify-between hover:bg-secondary/30 transition-colors">
-                <div className="flex items-start gap-3">
+              <div key={entry.id} className="px-4 py-3.5 flex items-start justify-between gap-3 hover:bg-secondary/30 transition-colors">
+                <div className="flex items-start gap-3 min-w-0 flex-1">
                   <Building2 className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-sm font-semibold">{entry.businessName}</p>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold truncate">{entry.businessName}</p>
                     {entry.contactName && <p className="text-xs text-muted-foreground">{entry.contactName}</p>}
-                    {entry.email && <p className="text-xs text-muted-foreground">{entry.email}</p>}
+                    {entry.email && <p className="text-xs text-muted-foreground truncate">{entry.email}</p>}
                     {entry.googleBusinessUrl && (
-                      <a href={entry.googleBusinessUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:underline block max-w-xs truncate">{entry.googleBusinessUrl}</a>
+                      <a href={entry.googleBusinessUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:underline block truncate max-w-[200px] sm:max-w-xs">{entry.googleBusinessUrl}</a>
                     )}
                     <div className="flex items-center gap-1.5 mt-1">
                       <Clock className="h-3 w-3 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">{fmtDate(entry.createdAt)} · {daysSince(entry.createdAt)}d ago</span>
+                      <span className="text-xs text-muted-foreground">{fmtDate(entry.createdAt)}</span>
                     </div>
                   </div>
                 </div>
@@ -392,19 +390,21 @@ function SimpleProductTab({ app, urlEnvKey }: { app: string; urlEnvKey: string }
 
 export default function Products() {
   return (
-    <div className="space-y-8 pb-10">
+    <div className="space-y-6 pb-10">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight mb-2">Products</h1>
-        <p className="text-muted-foreground">Users, subscriptions, and product-specific data across all apps.</p>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-1.5">Products</h1>
+        <p className="text-muted-foreground text-sm sm:text-base">Users, subscriptions, and product-specific data across all apps.</p>
       </div>
 
       <Tabs defaultValue="permitradar">
-        <TabsList className="mb-6">
-          <TabsTrigger value="permitradar">PermitRadar</TabsTrigger>
-          <TabsTrigger value="revoo">Re-Voo</TabsTrigger>
-          <TabsTrigger value="leadpulse">LeadPulse</TabsTrigger>
-          <TabsTrigger value="answerdine">AnswerDine</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-1 px-1 mb-6">
+          <TabsList className="whitespace-nowrap">
+            <TabsTrigger value="permitradar">PermitRadar</TabsTrigger>
+            <TabsTrigger value="revoo">Re-Voo</TabsTrigger>
+            <TabsTrigger value="leadpulse">LeadPulse</TabsTrigger>
+            <TabsTrigger value="answerdine">AnswerDine</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="permitradar"><PermitRadarTab /></TabsContent>
         <TabsContent value="revoo"><RevooTab /></TabsContent>

@@ -63,13 +63,13 @@ export default function Overview() {
   const kalshiPnl = kalshi.data?.pnl ?? kalshi.data?.pnl_30d;
 
   return (
-    <div className="space-y-8 pb-10">
-      <div className="flex items-start justify-between">
+    <div className="space-y-6 pb-10">
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Overview</h1>
-          <p className="text-muted-foreground">High-level metrics across all your connected properties.</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-1.5">Overview</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">High-level metrics across all your connected properties.</p>
         </div>
-        <Button variant="outline" size="sm" onClick={refreshAll}>
+        <Button variant="outline" size="sm" onClick={refreshAll} className="flex-shrink-0">
           <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
           Refresh
         </Button>
@@ -79,11 +79,11 @@ export default function Overview() {
         variants={container}
         initial="hidden"
         animate="show"
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+        className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"
       >
         <motion.div variants={item}>
           {stripe.loading ? (
-            <Skeleton className="h-32 rounded-xl" />
+            <Skeleton className="h-28 sm:h-32 rounded-xl" />
           ) : (
             <MetricCard
               title="MRR"
@@ -96,10 +96,10 @@ export default function Overview() {
 
         <motion.div variants={item}>
           {replit.loading ? (
-            <Skeleton className="h-32 rounded-xl" />
+            <Skeleton className="h-28 sm:h-32 rounded-xl" />
           ) : (
             <MetricCard
-              title="Deployed Projects"
+              title="Deployed"
               value={replit.data ? String(replit.data.deployedCount) : "—"}
               subtitle="Replit deployments"
               icon={<Terminal className="h-5 w-5" />}
@@ -109,7 +109,7 @@ export default function Overview() {
 
         <motion.div variants={item}>
           {kalshi.loading ? (
-            <Skeleton className="h-32 rounded-xl" />
+            <Skeleton className="h-28 sm:h-32 rounded-xl" />
           ) : (
             <MetricCard
               title="Bot P&L"
@@ -127,10 +127,10 @@ export default function Overview() {
 
         <motion.div variants={item}>
           {(tradier.loading || publicCom.loading) ? (
-            <Skeleton className="h-32 rounded-xl" />
+            <Skeleton className="h-28 sm:h-32 rounded-xl" />
           ) : (
             <MetricCard
-              title="Portfolio Value"
+              title="Portfolio"
               value={hasPortfolio ? fmtMoney(portfolioValue) : "—"}
               subtitle="Tradier & Public.com"
               icon={<Briefcase className="h-5 w-5" />}
@@ -140,9 +140,9 @@ export default function Overview() {
       </motion.div>
 
       {/* Integration status summary */}
-      <div className="rounded-xl border border-border bg-card/50 p-6">
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Integration Status</h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      <div className="rounded-xl border border-border bg-card/50 p-4 sm:p-6">
+        <h2 className="text-xs sm:text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Integration Status</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
           {[
             { name: "Stripe", ok: stripe.configured && !stripe.error, loading: stripe.loading },
             { name: "Replit", ok: replit.configured && !replit.error, loading: replit.loading },
@@ -150,11 +150,11 @@ export default function Overview() {
             { name: "Tradier", ok: tradier.configured && !tradier.error, loading: tradier.loading },
             { name: "Public.com", ok: publicCom.configured && !publicCom.error, loading: publicCom.loading },
           ].map(({ name, ok, loading }) => (
-            <div key={name} className="flex items-center gap-2">
+            <div key={name} className="flex items-center gap-2 min-w-0">
               <div className={`h-2 w-2 rounded-full flex-shrink-0 ${loading ? "bg-yellow-500 animate-pulse" : ok ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
-              <span className="text-sm text-muted-foreground">{name}</span>
+              <span className="text-sm text-muted-foreground truncate">{name}</span>
               {!loading && (
-                <span className={`text-xs ${ok ? "text-emerald-500" : "text-muted-foreground/50"}`}>
+                <span className={`text-xs hidden sm:inline ${ok ? "text-emerald-500" : "text-muted-foreground/50"}`}>
                   {ok ? "connected" : "not configured"}
                 </span>
               )}

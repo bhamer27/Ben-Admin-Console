@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { Sidebar } from "./Sidebar";
 import { ChatSidebar } from "../ChatSidebar";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { MessageSquare, Menu } from "lucide-react";
 import type { AuthUser } from "@workspace/replit-auth-web";
 
@@ -32,6 +32,7 @@ export function Shell({ children, user, logout, tabData }: ShellProps) {
       {/* Mobile sidebar — sheet drawer */}
       <Sheet open={navOpen} onOpenChange={setNavOpen}>
         <SheetContent side="left" className="p-0 w-64 bg-sidebar border-r border-sidebar-border [&>button]:hidden">
+          <SheetTitle className="sr-only">Navigation</SheetTitle>
           <Sidebar user={user} logout={logout} onNavClick={() => setNavOpen(false)} />
         </SheetContent>
       </Sheet>
