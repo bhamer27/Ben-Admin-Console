@@ -18,8 +18,9 @@ interface ChatSidebarProps {
 }
 
 export function ChatSidebar({ tab, tabData, onClose }: ChatSidebarProps) {
+  const tabLabel = tab.charAt(0).toUpperCase() + tab.slice(1);
   const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", content: `On the **${tab}** tab. What do you want to know or change?` },
+    { role: "assistant", content: `On the **${tabLabel}** tab. What do you want to know or change?` },
   ]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -31,7 +32,8 @@ export function ChatSidebar({ tab, tabData, onClose }: ChatSidebarProps) {
   }, [messages, streaming]);
 
   useEffect(() => {
-    setMessages([{ role: "assistant", content: `On the **${tab}** tab. What do you want to know or change?` }]);
+    const label = tab.charAt(0).toUpperCase() + tab.slice(1);
+    setMessages([{ role: "assistant", content: `On the **${label}** tab. What do you want to know or change?` }]);
     setToolCalls([]);
   }, [tab]);
 
