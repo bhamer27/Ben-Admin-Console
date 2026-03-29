@@ -47,10 +47,9 @@ function filterAlert(alert: UwAlert): boolean {
   if (!alert.id || !alert.ticker) return false;
   if (!alert.dte || !alert.strike) return false;
 
-  // Premium must be >= $50k (UW stores in cents/dollars — check both cases)
+  // Premium must be >= $100k (institutional size minimum)
   const premium = alert.premium ?? 0;
-  // UW typically stores premium in dollars
-  if (premium < 50_000) return false;
+  if (premium < 100_000) return false;
 
   return true;
 }

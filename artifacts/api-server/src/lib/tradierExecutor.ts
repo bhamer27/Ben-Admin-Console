@@ -1,17 +1,25 @@
-
-
 import { db, optionsPositionsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { TRADING_RULES } from "./tradingRules.js";
+import { TRADING_RULES, getEffectiveAllocationPct } from "./tradingRules.js";
 import { logger } from "./logger.js";
 
+// ── Tradier config ─────────────────────────────────────────────────────────────
+// Sandbox defaults — override with env vars for live trading
 const isSandbox = process.env.TRADIER_SANDBOX !== "false";
 const BASE_URL = isSandbox
   ? "https://sandbox.tradier.com/v1"
   : "https://api.tradier.com/v1";
 
+function getAccountId(): string {
+  return process.env.TRADIER_ACCOUNT_ID ?? (isSandbox ? "VA1575604" : "");
+}
+
+function getApiToken(): string {
+  return process.env.TRADIER_API_TOKEN ?? (isSandbox ? "2tAybDG6Ef3ILJunMh3bdbqkBfPK" : "");
+}
+
 function tradierHeaders(): Record<string, string> {
-  const token = process.env.TRADIER_API_TOKEN;
+  const token = getApiToken();
   if (!token) throw new Error("TRADIER_API_TOKEN not set");
   return {
     Authorization: `Bearer ${token}`,
@@ -47,6 +55,7 @@ async function tradierGet(path: string): Promise<unknown> {
   return res.json();
 }
 
+// ── Entry ──────────────────────────────────────────────────────────────────────
 export interface EntryParams {
   alertId?: string;
   ticker: string;
@@ -55,22 +64,29 @@ export interface EntryParams {
   strike: number;
   expiry: string;
   optionPrice: number;
+  vix?: number | null;  // used for VIX-adjusted sizing
 }
 
 export async function executeEntry(params: EntryParams): Promise<number> {
-  const accountId = process.env.TRADIER_ACCOUNT_ID;
-  if (!accountId) throw new Error("TRADIER_ACCOUNT_ID not set");
+  const accountId = getAccountId();
+  if (!accountId) throw new Error("TRADIER_ACCOUNT_ID not configured");
 
-  const portfolioValue = parseFloat(process.env.PORTFOLIO_VALUE ?? "10000");
-  const contracts = Math.max(
-    1,
-    Math.floor((portfolioValue * TRADING_RULES.maxAllocationPct) / (params.optionPrice * 100)),
-  );
+  const portfolioValue = parseFloat(process.env.PORTFOLIO_VALUE ?? "100000");
+  const allocPct = getEffectiveAllocationPct(params.vix ?? null);
+  const maxAlloc = portfolioValue * allocPct;
+
+  // contracts = floor(allocation / (price * 100)), minimum 1
+  const contracts = Math.max(1, Math.floor(maxAlloc / (params.optionPrice * 100)));
 
   const entryPrice = params.optionPrice;
   const stopPrice = +(entryPrice * (1 - TRADING_RULES.hardStopPct)).toFixed(2);
   const t1Price = +(entryPrice * (1 + TRADING_RULES.t1TargetPct)).toFixed(2);
   const t2Price = +(entryPrice * (1 + TRADING_RULES.t2TargetPct)).toFixed(2);
+
+  logger.info(
+    { ticker: params.ticker, contracts, entryPrice, allocPct, isSandbox },
+    "Placing entry order",
+  );
 
   // Place limit order via Tradier
   await tradierPost(`/accounts/${accountId}/orders`, {
@@ -102,13 +118,18 @@ export async function executeEntry(params: EntryParams): Promise<number> {
     })
     .returning({ id: optionsPositionsTable.id });
 
-  logger.info({ positionId: row.id, symbol: params.optionSymbol, contracts }, "Position opened");
+  logger.info(
+    { positionId: row.id, symbol: params.optionSymbol, contracts, stop: stopPrice, t1: t1Price, t2: t2Price },
+    "Position opened",
+  );
+
   return row.id;
 }
 
+// ── Exit ───────────────────────────────────────────────────────────────────────
 export async function executeExit(positionId: number, reason: string): Promise<void> {
-  const accountId = process.env.TRADIER_ACCOUNT_ID;
-  if (!accountId) throw new Error("TRADIER_ACCOUNT_ID not set");
+  const accountId = getAccountId();
+  if (!accountId) throw new Error("TRADIER_ACCOUNT_ID not configured");
 
   const [position] = await db
     .select()
@@ -117,30 +138,31 @@ export async function executeExit(positionId: number, reason: string): Promise<v
 
   if (!position) throw new Error(`Position ${positionId} not found`);
   if (position.status !== "open") {
-    logger.warn({ positionId }, "Position already closed");
+    logger.warn({ positionId }, "Position already closed — skipping exit");
     return;
   }
 
-  // Fetch current market price
-  let closePrice: number;
+  // Fetch current market price for P&L calc
+  let closePrice = 0;
   try {
-    const quoteRes = await tradierGet(`/markets/quotes?symbols=${position.optionSymbol}&greeks=false`) as {
-      quotes?: { quote?: { bid?: number; ask?: number; last?: number } };
-    };
+    const quoteRes = await tradierGet(
+      `/markets/quotes?symbols=${encodeURIComponent(position.optionSymbol)}&greeks=false`,
+    ) as { quotes?: { quote?: { bid?: number; ask?: number; last?: number } } };
     const q = quoteRes?.quotes?.quote;
     const bid = q?.bid ?? 0;
     const ask = q?.ask ?? 0;
-    closePrice = bid > 0 && ask > 0 ? +(bid + ask) / 2 : (q?.last ?? 0);
-  } catch {
-    closePrice = 0;
+    closePrice = bid > 0 && ask > 0 ? +((bid + ask) / 2).toFixed(2) : (q?.last ?? 0);
+  } catch (err) {
+    logger.warn({ err, positionId }, "Could not fetch close price — using 0");
   }
 
   const entryPrice = parseFloat(position.entryPrice);
-  const pnlPerContract = (closePrice - entryPrice) * 100;
-  const pnlDollars = +(pnlPerContract * position.contracts).toFixed(2);
-  const pnlPct = entryPrice > 0 ? +(((closePrice - entryPrice) / entryPrice) * 100).toFixed(2) : 0;
+  const pnlDollars = +((closePrice - entryPrice) * 100 * position.contracts).toFixed(2);
+  const pnlPct = entryPrice > 0
+    ? +(((closePrice - entryPrice) / entryPrice) * 100).toFixed(2)
+    : 0;
 
-  // Place sell order
+  // Place market sell order
   try {
     await tradierPost(`/accounts/${accountId}/orders`, {
       class: "option",
@@ -152,7 +174,7 @@ export async function executeExit(positionId: number, reason: string): Promise<v
       duration: "day",
     });
   } catch (err) {
-    logger.error({ err, positionId }, "Tradier exit order failed");
+    logger.error({ err, positionId }, "Tradier exit order failed — marking closed anyway");
   }
 
   await db
@@ -170,21 +192,25 @@ export async function executeExit(positionId: number, reason: string): Promise<v
   logger.info({ positionId, reason, pnlDollars, pnlPct }, "Position closed");
 }
 
+// ── Quote fetching ─────────────────────────────────────────────────────────────
 export async function fetchOptionQuotes(symbols: string[]): Promise<Map<string, number>> {
   if (symbols.length === 0) return new Map();
-  const joined = symbols.join(",");
+
   try {
-    const res = await tradierGet(`/markets/quotes?symbols=${encodeURIComponent(joined)}&greeks=false`) as {
-      quotes?: { quote?: unknown | unknown[] };
+    const joined = symbols.map(encodeURIComponent).join(",");
+    const res = await tradierGet(`/markets/quotes?symbols=${joined}&greeks=false`) as {
+      quotes?: { quote?: unknown };
     };
-    const quotes = res?.quotes?.quote;
-    const arr = Array.isArray(quotes) ? quotes : quotes ? [quotes] : [];
+    const raw = res?.quotes?.quote;
+    const arr: Array<{ symbol: string; bid?: number; ask?: number; last?: number }> =
+      Array.isArray(raw) ? raw : raw ? [raw as { symbol: string }] : [];
+
     const map = new Map<string, number>();
-    for (const q of arr as { symbol: string; bid?: number; ask?: number; last?: number }[]) {
+    for (const q of arr) {
       const bid = q.bid ?? 0;
       const ask = q.ask ?? 0;
       const mid = bid > 0 && ask > 0 ? (bid + ask) / 2 : (q.last ?? 0);
-      map.set(q.symbol, mid);
+      map.set(q.symbol, +mid.toFixed(2));
     }
     return map;
   } catch (err) {
