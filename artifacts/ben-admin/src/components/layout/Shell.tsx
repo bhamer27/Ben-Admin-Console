@@ -68,23 +68,22 @@ export function Shell({ children, user, logout, tabData }: ShellProps) {
           </Button>
         </div>
 
-        <div className="flex flex-1 min-h-0">
-          <div className="flex-1 overflow-y-auto z-10 p-4 md:p-8 lg:p-10 pt-4">
-            <div className="max-w-6xl mx-auto w-full">
-              {children}
-            </div>
+        <div className="flex-1 overflow-y-auto z-10 p-4 md:p-8 lg:p-10 pt-4">
+          <div className="max-w-6xl mx-auto w-full">
+            {children}
           </div>
-
-          {chatOpen && (
-            <div className="w-[320px] md:w-[360px] shrink-0 flex flex-col overflow-hidden z-10">
-              <ChatSidebar
-                tab={tabName}
-                tabData={tabData}
-                onClose={() => setChatOpen(false)}
-              />
-            </div>
-          )}
         </div>
+
+        {/* Chat panel — floats over content, does not shift layout */}
+        {chatOpen && (
+          <div className="absolute top-0 right-0 bottom-0 w-[320px] md:w-[360px] flex flex-col overflow-hidden z-20 border-l border-border bg-background/95 backdrop-blur-sm shadow-2xl">
+            <ChatSidebar
+              tab={tabName}
+              tabData={tabData}
+              onClose={() => setChatOpen(false)}
+            />
+          </div>
+        )}
       </main>
     </div>
   );
