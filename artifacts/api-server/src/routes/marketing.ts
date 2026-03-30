@@ -175,89 +175,72 @@ async function fetchGoogleAds(customerId: string, developerToken: string) {
 }
 
 // ──────────────────────────────────────────
-// Instantly.ai — paginate ALL campaigns
+// Instantly.ai v2 API
 // ──────────────────────────────────────────
-async function fetchInstantlyAllCampaigns(apiKey: string) {
-  const allCampaigns: { id: string; name: string; status: number; email_list?: string[] }[] = [];
-  const pageSize = 100;
-  let skip = 0;
-  let hasMore = true;
+interface InstantlyV2Campaign {
+  id: string;
+  name: string;
+  status: number;
+}
 
-  // Paginate until all campaigns are fetched
-  while (hasMore) {
-    const res = await fetch(
-      `https://api.instantly.ai/api/v1/campaign/list?skip=${skip}&limit=${pageSize}`,
-      {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        signal: AbortSignal.timeout(15_000),
-      },
-    );
+interface InstantlyV2Analytics {
+  campaign_id: string;
+  campaign_name: string;
+  campaign_status: number;
+  emails_sent_count: number;
+  open_count: number;
+  reply_count: number;
+}
+
+async function fetchInstantlyAllCampaigns(apiKey: string): Promise<InstantlyV2Campaign[]> {
+  const allCampaigns: InstantlyV2Campaign[] = [];
+  const pageSize = 100;
+  let startingAfter: string | undefined;
+
+  while (true) {
+    const url = new URL("https://api.instantly.ai/api/v2/campaigns");
+    url.searchParams.set("limit", String(pageSize));
+    if (startingAfter) url.searchParams.set("starting_after", startingAfter);
+
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(15_000),
+    });
 
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      throw new Error(`Instantly API ${res.status}: ${text.slice(0, 200)}`);
+      throw new Error(`Instantly v2 campaigns ${res.status}: ${text.slice(0, 200)}`);
     }
 
-    const data = await res.json() as {
-      data?: { id: string; name: string; status: number; email_list?: string[] }[];
-    };
-
-    const page = data.data ?? [];
+    const data = await res.json() as { items: InstantlyV2Campaign[]; next_starting_after?: string };
+    const page = data.items ?? [];
     allCampaigns.push(...page);
 
-    // Stop if we got fewer than a full page (last page)
-    hasMore = page.length === pageSize;
-    skip += pageSize;
-
-    // Safety cap: stop at 1000 campaigns
-    if (allCampaigns.length >= 1000) break;
+    if (!data.next_starting_after || page.length < pageSize || allCampaigns.length >= 1000) break;
+    startingAfter = data.next_starting_after;
   }
 
   return allCampaigns;
 }
 
 async function fetchInstantly(apiKey: string) {
-  const campaigns = await fetchInstantlyAllCampaigns(apiKey);
+  // Fetch campaigns list and bulk analytics in parallel
+  const [campaigns, analyticsRes] = await Promise.all([
+    fetchInstantlyAllCampaigns(apiKey),
+    fetch("https://api.instantly.ai/api/v2/campaigns/analytics", {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(15_000),
+    }),
+  ]);
 
-  // Fetch analytics for ALL campaigns (in batches to avoid rate limits)
-  const BATCH_SIZE = 10;
-  let totalSent = 0;
-  let totalOpens = 0;
-  let totalReplies = 0;
-
-  for (let i = 0; i < campaigns.length; i += BATCH_SIZE) {
-    const batch = campaigns.slice(i, i + BATCH_SIZE);
-    const batchResults = await Promise.allSettled(
-      batch.map(async (c) => {
-        const r = await fetch(
-          `https://api.instantly.ai/api/v1/analytics/campaign/summary?campaign_id=${c.id}`,
-          {
-            headers: { Authorization: `Bearer ${apiKey}` },
-            signal: AbortSignal.timeout(10_000),
-          },
-        );
-        if (!r.ok) return null;
-        return r.json() as Promise<{
-          total_leads_count?: number;
-          contacted_count?: number;
-          emails_sent_count?: number;
-          open_count?: number;
-          reply_count?: number;
-        }>;
-      }),
-    );
-
-    for (const result of batchResults) {
-      if (result.status === "fulfilled" && result.value) {
-        totalSent += result.value.emails_sent_count ?? 0;
-        totalOpens += result.value.open_count ?? 0;
-        totalReplies += result.value.reply_count ?? 0;
-      }
-    }
+  let analytics: InstantlyV2Analytics[] = [];
+  if (analyticsRes.ok) {
+    analytics = await analyticsRes.json() as InstantlyV2Analytics[];
   }
+
+  const totalSent    = analytics.reduce((s, a) => s + (a.emails_sent_count ?? 0), 0);
+  const totalOpens   = analytics.reduce((s, a) => s + (a.open_count ?? 0), 0);
+  const totalReplies = analytics.reduce((s, a) => s + (a.reply_count ?? 0), 0);
 
   return {
     activeCampaigns: campaigns.filter((c) => c.status === 1).length,
@@ -265,11 +248,7 @@ async function fetchInstantly(apiKey: string) {
     emailsSent30d: totalSent,
     openRate: totalSent > 0 ? totalOpens / totalSent : 0,
     replyRate: totalSent > 0 ? totalReplies / totalSent : 0,
-    campaigns: campaigns.map((c) => ({
-      id: c.id,
-      name: c.name,
-      status: c.status,
-    })),
+    campaigns: campaigns.map((c) => ({ id: c.id, name: c.name, status: c.status })),
   };
 }
 
