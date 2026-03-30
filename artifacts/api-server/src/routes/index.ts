@@ -11,6 +11,7 @@ import revooRouter from "./revoo";
 import permitradarRouter from "./permitradar";
 import productsRouter from "./products";
 import tradingRouter from "./trading";
+import chatRouter from "./chat";
 import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
@@ -28,6 +29,7 @@ const PUBLIC_PATHS = new Set([
   "/logout",
   "/mobile-auth/token-exchange",
   "/mobile-auth/logout",
+  "/chat",
 ]);
 
 function isPublicPath(path: string): boolean {
@@ -60,5 +62,6 @@ router.use(revooRouter);
 router.use(permitradarRouter);
 router.use(productsRouter);
 router.use(tradingRouter);
+router.use(chatRouter);
 
 export default router;
