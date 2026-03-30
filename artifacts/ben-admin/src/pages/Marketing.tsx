@@ -70,9 +70,13 @@ export default function Marketing() {
         )}
       </div>
 
-      <Tabs defaultValue="search-console">
+      <Tabs defaultValue="instantly">
         <div className="overflow-x-auto -mx-1 px-1 mb-6">
           <TabsList className="whitespace-nowrap">
+            <TabsTrigger value="instantly" className="gap-1.5">
+              <Mail className="h-3.5 w-3.5" />
+              <span>Instantly</span>
+            </TabsTrigger>
             <TabsTrigger value="search-console" className="gap-1.5">
               <Search className="h-3.5 w-3.5" />
               <span>Search Console</span>
@@ -80,10 +84,6 @@ export default function Marketing() {
             <TabsTrigger value="google-ads" className="gap-1.5">
               <DollarSign className="h-3.5 w-3.5" />
               <span>Google Ads</span>
-            </TabsTrigger>
-            <TabsTrigger value="instantly" className="gap-1.5">
-              <Mail className="h-3.5 w-3.5" />
-              <span>Instantly</span>
             </TabsTrigger>
           </TabsList>
         </div>
