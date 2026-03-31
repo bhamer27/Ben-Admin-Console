@@ -28,3 +28,7 @@ timeoutMs = 20000
 [userenv]
 
 [userenv.development]
+
+[userenv.shared]
+KOWALSKI_URL = "http://167.71.108.57:18789/hooks/agent"
+KOWALSKI_GW_URL = "http://167.71.108.57:18789"
