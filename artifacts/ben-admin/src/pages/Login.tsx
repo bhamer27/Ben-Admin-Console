@@ -30,7 +30,8 @@ export default function Login() {
             <img
               src={`${import.meta.env.BASE_URL}images/logo.png`}
               alt="BenAdmin"
-              className="h-16 w-16 rounded-2xl object-cover shadow-lg shadow-primary/20"
+              className="h-32 w-32 rounded-2xl object-cover shadow-xl shadow-primary/30"
+              style={{ filter: "brightness(1.8) contrast(1.1) saturate(0.75)" }}
             />
           </div>
           
