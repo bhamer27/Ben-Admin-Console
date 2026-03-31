@@ -59,45 +59,47 @@
 }
 
 :root {
-  /* Defaulting to dark mode palette for a professional, slate/zinc look */
-  --background: 240 10% 3.9%;
-  --foreground: 0 0% 98%;
+  /* Deep navy theme — matched to the BenAdmin hexagon logo */
+  --background: 222 44% 5%;
+  --foreground: 210 18% 93%;
 
-  --border: 240 3.7% 15.9%;
-  --input: 240 3.7% 15.9%;
-  --ring: 240 4.9% 83.9%;
+  --border: 218 36% 15%;
+  --input: 218 36% 15%;
+  --ring: 209 66% 58%;
 
-  --card: 240 10% 3.9%;
-  --card-foreground: 0 0% 98%;
-  --card-border: 240 3.7% 15.9%;
+  --card: 222 42% 7%;
+  --card-foreground: 210 18% 93%;
+  --card-border: 218 36% 14%;
 
-  --popover: 240 10% 3.9%;
-  --popover-foreground: 0 0% 98%;
-  --popover-border: 240 3.7% 15.9%;
+  --popover: 222 42% 6%;
+  --popover-foreground: 210 18% 93%;
+  --popover-border: 218 36% 14%;
 
-  --primary: 0 0% 98%;
-  --primary-foreground: 240 5.9% 10%;
+  /* Primary = bright cornflower blue from center hex */
+  --primary: 209 66% 58%;
+  --primary-foreground: 222 44% 5%;
 
-  --secondary: 240 3.7% 15.9%;
-  --secondary-foreground: 0 0% 98%;
+  --secondary: 218 40% 12%;
+  --secondary-foreground: 210 18% 90%;
 
-  --muted: 240 3.7% 15.9%;
-  --muted-foreground: 240 5% 64.9%;
+  --muted: 218 38% 11%;
+  --muted-foreground: 218 18% 52%;
 
-  --accent: 240 3.7% 15.9%;
-  --accent-foreground: 0 0% 98%;
+  --accent: 218 40% 14%;
+  --accent-foreground: 210 18% 93%;
 
-  --destructive: 0 62.8% 30.6%;
+  --destructive: 0 62% 31%;
   --destructive-foreground: 0 0% 98%;
 
-  --sidebar: 240 10% 3.9%;
-  --sidebar-foreground: 240 4.8% 95.9%;
-  --sidebar-border: 240 3.7% 15.9%;
-  --sidebar-primary: 224.3 76.3% 48%;
+  /* Sidebar — one shade darker than background */
+  --sidebar: 222 47% 4%;
+  --sidebar-foreground: 210 18% 90%;
+  --sidebar-border: 218 36% 12%;
+  --sidebar-primary: 209 66% 58%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 240 3.7% 15.9%;
-  --sidebar-accent-foreground: 240 4.8% 95.9%;
-  --sidebar-ring: 217.2 91.2% 59.8%;
+  --sidebar-accent: 218 40% 10%;
+  --sidebar-accent-foreground: 210 18% 92%;
+  --sidebar-ring: 209 66% 58%;
 
   --radius: 0.5rem;
 }

@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@workspace/replit-auth-web";
-import { ShieldAlert, ArrowRight, Lock } from "lucide-react";
+import { ArrowRight, Lock } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function Login() {
@@ -27,9 +27,11 @@ export default function Login() {
       >
         <div className="bg-card/50 backdrop-blur-xl border border-border/50 rounded-2xl p-8 shadow-2xl shadow-black/50">
           <div className="flex justify-center mb-6">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-lg shadow-primary/20">
-              <ShieldAlert className="h-8 w-8" />
-            </div>
+            <img
+              src={`${import.meta.env.BASE_URL}images/logo.png`}
+              alt="BenAdmin"
+              className="h-16 w-16 rounded-2xl object-cover shadow-lg shadow-primary/20"
+            />
           </div>
           
           <div className="text-center mb-8">

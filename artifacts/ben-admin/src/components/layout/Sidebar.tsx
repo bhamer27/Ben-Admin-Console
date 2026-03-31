@@ -9,7 +9,6 @@ import {
   LineChart,
   LayoutGrid,
   LogOut,
-  ShieldAlert
 } from "lucide-react";
 import type { AuthUser } from "@workspace/replit-auth-web";
 
@@ -35,9 +34,11 @@ export function Sidebar({ user, logout, onNavClick }: SidebarProps) {
   return (
     <div className="flex flex-col w-64 h-full bg-sidebar border-r border-sidebar-border relative z-10">
       <div className="p-6 flex items-center gap-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <ShieldAlert className="h-5 w-5" />
-        </div>
+        <img
+          src={`${import.meta.env.BASE_URL}images/logo.png`}
+          alt="BenAdmin"
+          className="h-8 w-8 rounded-lg object-cover"
+        />
         <span className="font-semibold text-lg tracking-tight text-sidebar-foreground">BenAdmin</span>
       </div>
 
