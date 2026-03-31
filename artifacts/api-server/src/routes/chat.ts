@@ -1,133 +1,167 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import Anthropic from "@anthropic-ai/sdk";
-import { readFileSync } from "fs";
-import { existsSync } from "fs";
 
 const router: IRouter = Router();
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-// Load memory.md as system context — read from disk if running on the droplet,
-// otherwise fall back to the KOWALSKI_MEMORY env var (base64 or plain text).
-function loadMemory(): string {
-  // Try local file first (works when app runs on the same droplet as Kowalski)
-  const localPaths = [
-    "/root/.openclaw/memory.md",
-    process.env.MEMORY_PATH ?? "",
-  ].filter(Boolean);
+const KOWALSKI_HOOKS_URL   = process.env.KOWALSKI_URL      ?? "http://167.71.108.57:18789/hooks/agent";
+const KOWALSKI_HOOKS_TOKEN = process.env.KOWALSKI_TOKEN    ?? "benadmin-hook-secret-2026";
+const KOWALSKI_GW_URL      = process.env.KOWALSKI_GW_URL   ?? "http://167.71.108.57:18789";
+const KOWALSKI_GW_TOKEN    = process.env.KOWALSKI_GW_TOKEN ?? "6528e52e789a282727b3d227eb1f283742032c7cca9bc6878bc0782e93cd755e";
 
-  for (const p of localPaths) {
-    if (existsSync(p)) {
-      try {
-        return readFileSync(p, "utf-8");
-      } catch {
-        // fall through
+interface SessionEntry {
+  key: string;
+  sessionId: string;
+  channel: string;
+  status: string;
+  updatedAt: number;
+  transcriptPath?: string;
+}
+
+// Get the latest Discord session transcript path from the gateway
+async function getDiscordSessionPath(): Promise<{ path: string; updatedAt: number } | null> {
+  const r = await fetch(`${KOWALSKI_GW_URL}/tools/invoke`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${KOWALSKI_GW_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ tool: "sessions_list", args: {} }),
+    signal: AbortSignal.timeout(6000),
+  });
+  if (!r.ok) return null;
+  const data = await r.json() as { ok: boolean; result?: { details?: { sessions?: SessionEntry[] } } };
+  const sessions = data?.result?.details?.sessions ?? [];
+  // Find the most recently active discord session
+  const discord = sessions
+    .filter(s => s.channel === "discord" && s.transcriptPath)
+    .sort((a, b) => b.updatedAt - a.updatedAt)[0];
+  return discord ? { path: discord.transcriptPath!, updatedAt: discord.updatedAt } : null;
+}
+
+// Read assistant reply from transcript file after a given timestamp
+async function readLatestReply(transcriptPath: string, afterMs: number, maxWaitMs = 28000): Promise<string | null> {
+  const start    = Date.now();
+  const interval = 1500;
+  // Read transcript via tools/invoke read tool
+  while (Date.now() - start < maxWaitMs) {
+    await new Promise(r => setTimeout(r, interval));
+    try {
+      const r = await fetch(`${KOWALSKI_GW_URL}/tools/invoke`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${KOWALSKI_GW_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          tool: "read",
+          args: { file: transcriptPath, limit: 20 },
+        }),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (!r.ok) continue;
+
+      const data  = await r.json() as { ok: boolean; result?: { content?: { type: string; text: string }[] } };
+      const text  = data?.result?.content?.[0]?.text ?? "";
+      const lines = text.split("\n").filter(Boolean);
+
+      // Parse JSONL transcript lines, find assistant messages after our send time
+      for (let i = lines.length - 1; i >= 0; i--) {
+        try {
+          const entry = JSON.parse(lines[i]) as { role?: string; content?: unknown; timestamp?: number; ts?: number };
+          const ts    = entry.timestamp ?? entry.ts ?? 0;
+          if (entry.role === "assistant" && (ts === 0 || ts > afterMs)) {
+            const content = entry.content;
+            if (typeof content === "string") return content;
+            if (Array.isArray(content)) {
+              const texts = content
+                .filter((c: {type?:string; text?:string}) => c.type === "text")
+                .map((c: {text?:string}) => c.text ?? "")
+                .join("");
+              if (texts) return texts;
+            }
+          }
+        } catch { /* skip malformed lines */ }
       }
-    }
+    } catch { /* keep polling */ }
   }
-
-  // Fallback: env var (set KOWALSKI_MEMORY in Replit Secrets as the full text)
-  if (process.env.KOWALSKI_MEMORY) {
-    return process.env.KOWALSKI_MEMORY;
-  }
-
-  return "(memory.md not available — running without full context)";
+  return null;
 }
 
-const SYSTEM_PROMPT = `You are Kowalski, Ben Hamer's AI assistant. You have full context about Ben, his projects, and his business via the memory file below. You are connected directly from Ben's admin console. Be concise, direct, and helpful — no filler words. You know everything in this memory and should use it proactively.
-
---- MEMORY START ---
-${loadMemory()}
---- MEMORY END ---`;
-
-// Background: notify Kowalski's hook endpoint to log this conversation to memory.md
-async function notifyKowalski(userMsg: string, assistantReply: string, tab: string) {
-  const hookUrl = process.env.KOWALSKI_URL;
-  const hookToken = process.env.KOWALSKI_TOKEN;
-  if (!hookUrl || !hookToken) return;
-
-  const summary = `[BenAdmin chat – tab: ${tab}]\nUser: ${userMsg}\nKowalski: ${assistantReply.slice(0, 500)}${assistantReply.length > 500 ? "..." : ""}`;
-
-  try {
-    await fetch(hookUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${hookToken}`,
-      },
-      body: JSON.stringify({
-        message: `Log this BenAdmin conversation to memory if significant:\n\n${summary}`,
-        agentId: "main",
-      }),
-      signal: AbortSignal.timeout(10_000),
-    });
-  } catch {
-    // Best-effort — don't block the response
-  }
-}
-
+// POST /api/chat  — relay to Kowalski via hooks, stream reply back as SSE
 router.post("/chat", async (req: Request, res: Response) => {
   const { messages, tabContext } = req.body as {
-    messages: { role: "user" | "assistant"; content: string }[];
+    messages: { role: string; content: string }[];
     tabContext?: { tab: string; data?: unknown };
   };
 
-  if (!messages || !Array.isArray(messages) || messages.length === 0) {
+  if (!messages?.length) {
     res.status(400).json({ error: "messages required" });
     return;
   }
 
-  const tab = tabContext?.tab ?? "unknown";
-  const tabData = tabContext?.data ? `\n\nCurrent tab data:\n${JSON.stringify(tabContext.data, null, 2)}` : "";
+  const tab      = tabContext?.tab ?? "unknown";
+  const lastUser = messages.filter(m => m.role === "user").pop()?.content ?? "";
+  const tabNote  = tabContext?.data
+    ? `\n\n[BenAdmin — tab: ${tab}]\n${JSON.stringify(tabContext.data, null, 2)}`
+    : `\n\n[BenAdmin — tab: ${tab}]`;
 
-  // Build system prompt with tab context appended
-  const systemPrompt = SYSTEM_PROMPT + tabData;
-
-  // Strip any empty messages and ensure valid roles
-  const cleanedMessages = messages
-    .filter((m) => m.content?.trim())
-    .map((m) => ({ role: m.role, content: m.content }));
-
-  if (cleanedMessages.length === 0) {
-    res.status(400).json({ error: "no valid messages" });
-    return;
-  }
-
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
+  res.setHeader("Content-Type",      "text/event-stream");
+  res.setHeader("Cache-Control",     "no-cache");
+  res.setHeader("Connection",        "keep-alive");
   res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders();
 
-  let fullReply = "";
+  const sse = (obj: object) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
+
+  const sentAt = Date.now();
 
   try {
-    const stream = anthropic.messages.stream({
-      model: "claude-haiku-4-5",
-      max_tokens: 1024,
-      system: systemPrompt,
-      messages: cleanedMessages,
+    // Fire to Kowalski
+    const hookRes = await fetch(KOWALSKI_HOOKS_URL, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${KOWALSKI_HOOKS_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ message: lastUser + tabNote, agentId: "main" }),
+      signal: AbortSignal.timeout(8000),
     });
 
-    for await (const event of stream) {
-      if (
-        event.type === "content_block_delta" &&
-        event.delta.type === "text_delta"
-      ) {
-        const delta = event.delta.text;
-        fullReply += delta;
-        res.write(`data: ${JSON.stringify({ type: "text", delta })}\n\n`);
-      }
+    if (!hookRes.ok) {
+      sse({ type: "text", delta: "Couldn't reach Kowalski. Try again." });
+      sse({ type: "done" });
+      res.end();
+      return;
     }
 
-    res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
+    sse({ type: "text", delta: "" }); // start signal
+
+    // Get the transcript path to poll
+    const session = await getDiscordSessionPath();
+    let reply: string | null = null;
+
+    if (session?.path) {
+      reply = await readLatestReply(session.path, sentAt);
+    }
+
+    if (reply) {
+      // Stream in small chunks for a natural feel
+      const words = reply.split(" ");
+      for (let i = 0; i < words.length; i += 4) {
+        const chunk = words.slice(i, i + 4).join(" ") + (i + 4 < words.length ? " " : "");
+        sse({ type: "text", delta: chunk });
+        await new Promise(r => setTimeout(r, 25));
+      }
+    } else {
+      sse({ type: "text", delta: "Sent — check Discord for my response." });
+    }
+
+    sse({ type: "done" });
     res.end();
 
-    // Fire-and-forget: log conversation to Kowalski memory
-    const userMsg = cleanedMessages.filter((m) => m.role === "user").pop()?.content ?? "";
-    notifyKowalski(userMsg, fullReply, tab).catch(() => {});
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    res.write(`data: ${JSON.stringify({ type: "error", message: msg })}\n\n`);
+    sse({ type: "text", delta: `Error: ${msg}` });
+    sse({ type: "done" });
     res.end();
   }
 });
