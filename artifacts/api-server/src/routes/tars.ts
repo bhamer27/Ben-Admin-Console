@@ -6,11 +6,17 @@ const router: IRouter = Router();
 // TARS engine running on Kowalski droplet — replaces old tars-ai.replit.app
 const TARS_URL = process.env.TARS_ENGINE_URL ?? "http://167.71.108.57:7655";
 
+function tarsHeaders(): Record<string, string> {
+  const token = process.env.BENADMIN_TOKEN;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 async function tarsGet(path: string): Promise<unknown> {
   const res = await fetch(`${TARS_URL}${path}`, {
+    headers: tarsHeaders(),
     signal: AbortSignal.timeout(15_000),
   });
-  if (!res.ok) throw new Error(`TARS ${path}: ${res.status}`);
+  if (!res.ok) throw new Error(`TARS ${path}: HTTP ${res.status}`);
   return res.json();
 }
 
