@@ -1,7 +1,9 @@
 import { CreditCard, RefreshCw, DollarSign, Users, TrendingUp, Receipt } from "lucide-react";
 import { MetricCard } from "@/components/MetricCard";
 import { DataSection } from "@/components/DataSection";
+import { useEffect } from "react";
 import { useFetch } from "@/lib/useFetch";
+import { useTabData } from "@/lib/tabDataContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -19,10 +21,13 @@ function fmtMoney(val: number): string {
 }
 
 export default function Stripe() {
+  const { setTabData } = useTabData();
   const { data, error, loading, configured, refetch } = useFetch<StripeMetrics>(
     "/api/stripe/metrics",
     { refreshInterval: 5 * 60_000 },
   );
+
+  useEffect(() => { if (data) setTabData(data); }, [data, setTabData]);
 
   return (
     <div className="space-y-6 pb-10">

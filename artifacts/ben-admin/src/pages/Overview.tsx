@@ -1,7 +1,9 @@
 import { motion, type Variants } from "framer-motion";
 import { MetricCard } from "@/components/MetricCard";
 import { DollarSign, Activity, Terminal, Briefcase, RefreshCw } from "lucide-react";
+import { useEffect } from "react";
 import { useFetch } from "@/lib/useFetch";
+import { useTabData } from "@/lib/tabDataContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 
@@ -34,6 +36,10 @@ export default function Overview() {
   const stripe = useFetch<StripeMetrics>("/api/stripe/metrics");
   const replit = useFetch<ReplitMetrics>("/api/replit/metrics");
   const kalshi = useFetch<KalshiStats>("/api/kalshi/stats");
+  const { setTabData } = useTabData();
+  useEffect(() => {
+    setTabData({ stripe: stripe.data, replit: replit.data, kalshi: kalshi.data });
+  }, [stripe.data, replit.data, kalshi.data, setTabData]);
   const tradier = useFetch<TradierData>("/api/stocks/tradier");
   const publicCom = useFetch<PublicData>("/api/stocks/public");
 

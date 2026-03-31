@@ -1,7 +1,9 @@
 import { Megaphone, RefreshCw, Search, MousePointerClick, Mail, BarChart2, DollarSign } from "lucide-react";
 import { MetricCard } from "@/components/MetricCard";
 import { DataSection } from "@/components/DataSection";
+import { useEffect } from "react";
 import { useFetch } from "@/lib/useFetch";
+import { useTabData } from "@/lib/tabDataContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -46,6 +48,10 @@ export default function Marketing() {
   const searchConsole = useFetch<SearchConsoleData>("/api/marketing/search-console", { refreshInterval: 10 * 60_000 });
   const googleAds = useFetch<GoogleAdsData>("/api/marketing/google-ads", { refreshInterval: 10 * 60_000 });
   const instantly = useFetch<InstantlyData>("/api/marketing/instantly", { refreshInterval: 10 * 60_000 });
+  const { setTabData } = useTabData();
+  useEffect(() => {
+    setTabData({ searchConsole: searchConsole.data, googleAds: googleAds.data, instantly: instantly.data });
+  }, [searchConsole.data, googleAds.data, instantly.data, setTabData]);
 
   function refreshAll() {
     searchConsole.refetch();
