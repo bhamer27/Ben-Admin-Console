@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { RefreshCw, Activity, DollarSign, Target, BarChart2, Cpu, TrendingUp, TrendingDown, Zap, Clock } from "lucide-react";
+import { useTabData } from "@/lib/tabDataContext";
 import { MetricCard } from "@/components/MetricCard";
 import { useFetch } from "@/lib/useFetch";
 import { Button } from "@/components/ui/button";
@@ -110,6 +112,11 @@ export default function Tars() {
     "/api/trading/tradier-account",
     { refreshInterval: 60_000 },
   );
+
+  const { setTabData } = useTabData();
+  useEffect(() => {
+    if (status || metrics) setTabData({ status, metrics, positions: positionsData?.positions ?? [], recentSignals: signalsData?.signals?.slice(0,10) ?? [] });
+  }, [status, metrics, positionsData, signalsData, setTabData]);
 
   const positions = positionsData?.positions ?? [];
   const signals = signalsData?.signals ?? [];

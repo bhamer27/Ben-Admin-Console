@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useTabData } from "@/lib/tabDataContext";
 import {
   TrendingUp, TrendingDown, RefreshCw, Target, DollarSign, Activity,
   BarChart2, PieChart, ChevronDown, ChevronRight, Clock, AlertCircle,
@@ -455,6 +456,8 @@ export default function Kalshi() {
     "/api/kalshi/stats",
     { refreshInterval: 60_000 },
   );
+  const { setTabData } = useTabData();
+  useEffect(() => { if (data) setTabData(data); }, [data, setTabData]);
 
   return (
     <div className="space-y-6 pb-10">

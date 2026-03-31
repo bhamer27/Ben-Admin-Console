@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@workspace/replit-auth-web";
 
 import { Shell } from "@/components/layout/Shell";
+import { TabDataProvider, useTabData } from "@/lib/tabDataContext";
 
 import LoadingScreen from "@/pages/LoadingScreen";
 import Login from "@/pages/Login";
@@ -23,9 +24,10 @@ const queryClient = new QueryClient();
 
 function ProtectedRoutes() {
   const { user, logout } = useAuth();
+  const { tabData } = useTabData();
 
   return (
-    <Shell user={user} logout={logout}>
+    <Shell user={user} logout={logout} tabData={tabData}>
       <Switch>
         <Route path="/" component={() => <Redirect to="/overview" />} />
         <Route path="/overview" component={Overview} />
@@ -76,10 +78,12 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
-        <Toaster />
+        <TabDataProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router />
+          </WouterRouter>
+          <Toaster />
+        </TabDataProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );
