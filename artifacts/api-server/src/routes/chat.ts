@@ -124,10 +124,12 @@ router.post("/chat", async (req: Request, res: Response) => {
   const sentAt = Date.now();
 
   try {
-    // Fire to Kowalski — include callback URL and token in the message
-    // Kowalski will POST reply to callbackUrl when done
+    // Generate a runId upfront so we can embed it in the message
+    const runId = `benadmin-${sentAt}-${Math.random().toString(36).slice(2, 8)}`;
+
+    // Build the full message WITH the callback instruction so Kowalski knows to POST back
     const fullMessage = lastUser + tabNote +
-      `\n\n[REPLY_CALLBACK url="${callbackUrl}" runId="{runId}" token="${KOWALSKI_HOOKS_TOKEN}"]`;
+      `\n\n[REPLY_CALLBACK url="${callbackUrl}" runId="${runId}" token="${KOWALSKI_HOOKS_TOKEN}"]`;
 
     const hookRes = await fetch(KOWALSKI_HOOKS_URL, {
       method: "POST",
@@ -136,7 +138,7 @@ router.post("/chat", async (req: Request, res: Response) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        message: lastUser + tabNote,
+        message: fullMessage,
         agentId: "main",
         sessionKey,
       }),
@@ -147,9 +149,6 @@ router.post("/chat", async (req: Request, res: Response) => {
       sse({ type: "text", delta: "Couldn't reach Kowalski. Try again." });
       sse({ type: "done" }); res.end(); return;
     }
-
-    const hookData = await hookRes.json() as { ok: boolean; runId?: string };
-    const runId    = hookData.runId ?? `fallback-${sentAt}`;
 
     sse({ type: "text", delta: "" }); // signal start to UI
 
