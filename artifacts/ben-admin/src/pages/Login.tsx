@@ -23,21 +23,21 @@ export default function Login() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
-        className="relative z-10 w-full max-w-md p-8"
+        className="relative z-10 w-full max-w-md md:max-w-xl px-6 md:px-12"
       >
-        <div className="bg-card/50 backdrop-blur-xl border border-border/50 rounded-2xl p-8 shadow-2xl shadow-black/50">
-          <div className="flex justify-center mb-6">
+        <div className="bg-card/50 backdrop-blur-xl border border-border/50 rounded-2xl p-8 md:p-12 shadow-2xl shadow-black/50">
+          <div className="flex justify-center mb-6 md:mb-8">
             <img
               src={`${import.meta.env.BASE_URL}images/logo-nobg.png`}
               alt="BenAdmin"
-              className="h-56 w-56 object-contain"
+              className="h-56 w-56 md:h-80 md:w-80 object-contain"
               style={{ filter: "brightness(1.8) contrast(1.1) saturate(0.75)" }}
             />
           </div>
           
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">BenAdmin</h1>
-            <p className="text-muted-foreground flex items-center justify-center gap-1.5 text-sm">
+          <div className="text-center mb-8 md:mb-10">
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-2">BenAdmin</h1>
+            <p className="text-muted-foreground flex items-center justify-center gap-1.5 text-sm md:text-base">
               <Lock className="h-3.5 w-3.5" /> Private Console Access
             </p>
           </div>
@@ -45,7 +45,7 @@ export default function Login() {
           <div className="space-y-4">
             <Button 
               onClick={login} 
-              className="w-full h-12 text-base font-medium group"
+              className="w-full h-12 md:h-14 text-base md:text-lg font-medium group"
             >
               Authenticate via Replit
               <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
