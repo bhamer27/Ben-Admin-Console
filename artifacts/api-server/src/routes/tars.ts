@@ -3,56 +3,14 @@ import { isOptionSymbol, parseOptionSymbol } from "./stocks";
 
 const router: IRouter = Router();
 
-const TARS_URL = "https://tars-ai.replit.app";
-
-// Cache the session cookie so we don't login every request
-let sessionCookie = "";
-let cookieExpiresAt = 0;
-
-async function tarsLogin(): Promise<string> {
-  const password = process.env.TARS_PASSWORD;
-  if (!password) throw new Error("TARS_PASSWORD not configured");
-
-  const res = await fetch(`${TARS_URL}/api/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ password }),
-    signal: AbortSignal.timeout(10_000),
-  });
-
-  if (!res.ok) throw new Error(`Tars login failed: ${res.status}`);
-
-  const setCookie = res.headers.get("set-cookie") ?? "";
-  const match = setCookie.match(/tars_session=([^;]+)/);
-  if (!match) throw new Error("No session cookie from Tars login");
-
-  sessionCookie = `tars_session=${match[1]}`;
-  cookieExpiresAt = Date.now() + 3600_000; // refresh hourly
-  return sessionCookie;
-}
+// TARS engine running on Kowalski droplet — replaces old tars-ai.replit.app
+const TARS_URL = process.env.TARS_ENGINE_URL ?? "http://167.71.108.57:7655";
 
 async function tarsGet(path: string): Promise<unknown> {
-  if (!sessionCookie || Date.now() > cookieExpiresAt) {
-    await tarsLogin();
-  }
-
-  const res = await fetch(`${TARS_URL}/api${path}`, {
-    headers: { Cookie: sessionCookie },
+  const res = await fetch(`${TARS_URL}${path}`, {
     signal: AbortSignal.timeout(15_000),
   });
-
-  // If unauthorized, retry login once
-  if (res.status === 401) {
-    await tarsLogin();
-    const retry = await fetch(`${TARS_URL}/api${path}`, {
-      headers: { Cookie: sessionCookie },
-      signal: AbortSignal.timeout(15_000),
-    });
-    if (!retry.ok) throw new Error(`Tars ${path}: ${retry.status}`);
-    return retry.json();
-  }
-
-  if (!res.ok) throw new Error(`Tars ${path}: ${res.status}`);
+  if (!res.ok) throw new Error(`TARS ${path}: ${res.status}`);
   return res.json();
 }
 
@@ -60,8 +18,8 @@ async function fetchTradierPositions() {
   const apiToken = process.env.TRADIER_API_TOKEN;
   if (!apiToken) return null;
 
-  const baseUrl = process.env.TRADIER_API_URL ?? "https://api.tradier.com/v1";
-  const accountId = process.env.TRADIER_ACCOUNT_ID ?? "me";
+  const baseUrl = process.env.TRADIER_API_URL ?? "https://sandbox.tradier.com/v1";
+  const accountId = process.env.TRADIER_ACCOUNT_ID ?? "VA1575604";
 
   const posRes = await fetch(`${baseUrl}/accounts/${accountId}/positions`, {
     headers: { Authorization: `Bearer ${apiToken}`, Accept: "application/json" },
@@ -81,7 +39,6 @@ async function fetchTradierPositions() {
   const list = raw ? (Array.isArray(raw) ? raw : [raw]) : [];
   if (list.length === 0) return { positions: [], totalValue: 0, totalCostBasis: 0, totalGainLoss: 0 };
 
-  // Fetch quotes
   const symbols = list.map((p) => p.symbol).join(",");
   const qRes = await fetch(`${baseUrl}/markets/quotes?symbols=${encodeURIComponent(symbols)}`, {
     headers: { Authorization: `Bearer ${apiToken}`, Accept: "application/json" },
@@ -127,28 +84,20 @@ async function fetchTradierPositions() {
 }
 
 router.get("/tars/snapshot", async (_req: Request, res: Response) => {
-  const password = process.env.TARS_PASSWORD;
-  if (!password) {
-    res.status(503).json({ error: "TARS_PASSWORD not configured", configured: false });
-    return;
-  }
-
   try {
-    const [account, metrics, engine, positions, flowAnalyses, tradierData] = await Promise.all([
-      tarsGet("/account") as Promise<Record<string, unknown>>,
-      tarsGet("/metrics") as Promise<Record<string, unknown>>,
-      tarsGet("/engine/status") as Promise<Record<string, unknown>>,
-      tarsGet("/positions") as Promise<unknown[]>,
-      tarsGet("/flow-analyses?limit=10") as Promise<unknown[]>,
+    const [status, metrics, signals, positions, tradierData] = await Promise.all([
+      tarsGet("/api/trading/status") as Promise<Record<string, unknown>>,
+      tarsGet("/api/trading/metrics") as Promise<Record<string, unknown>>,
+      tarsGet("/api/trading/signals") as Promise<{ signals: unknown[] }>,
+      tarsGet("/api/trading/positions") as Promise<{ positions: unknown[] }>,
       fetchTradierPositions().catch(() => null),
     ]);
 
     res.json({
-      account,
+      engine: status,
       metrics,
-      engine,
-      positions,
-      recentAnalyses: Array.isArray(flowAnalyses) ? flowAnalyses.slice(0, 10) : [],
+      positions: (positions as { positions: unknown[] }).positions ?? [],
+      recentAnalyses: (signals as { signals: unknown[] }).signals?.slice(0, 50) ?? [],
       tradierHoldings: tradierData,
     });
   } catch (err) {
@@ -156,5 +105,11 @@ router.get("/tars/snapshot", async (_req: Request, res: Response) => {
     res.status(502).json({ error: msg });
   }
 });
+
+// Pass-through routes for BenAdmin TARS page
+router.get("/trading/status",    async (_req, res) => { try { res.json(await tarsGet("/api/trading/status")); } catch (e) { res.status(502).json({ error: String(e) }); }});
+router.get("/trading/metrics",   async (_req, res) => { try { res.json(await tarsGet("/api/trading/metrics")); } catch (e) { res.status(502).json({ error: String(e) }); }});
+router.get("/trading/signals",   async (_req, res) => { try { res.json(await tarsGet("/api/trading/signals")); } catch (e) { res.status(502).json({ error: String(e) }); }});
+router.get("/trading/positions", async (_req, res) => { try { res.json(await tarsGet("/api/trading/positions")); } catch (e) { res.status(502).json({ error: String(e) }); }});
 
 export default router;
