@@ -57,11 +57,17 @@ async function tarsGet(path: string): Promise<unknown> {
 }
 
 async function fetchTradierPositions() {
-  const apiToken = process.env.TRADIER_API_TOKEN;
+  // Prefer sandbox credentials for Tars; fall back to live credentials
+  const apiToken = process.env.TARS_TRADIER_API_TOKEN ?? process.env.TRADIER_API_TOKEN;
   if (!apiToken) return null;
 
-  const baseUrl = process.env.TRADIER_API_URL ?? "https://api.tradier.com/v1";
-  const accountId = process.env.TRADIER_ACCOUNT_ID ?? "me";
+  const isSandbox = !!process.env.TARS_TRADIER_API_TOKEN;
+  const baseUrl = isSandbox
+    ? "https://sandbox.tradier.com/v1"
+    : (process.env.TRADIER_API_URL ?? "https://api.tradier.com/v1");
+  const accountId = isSandbox
+    ? (process.env.TARS_TRADIER_ACCOUNT_ID ?? "VA1575604")
+    : (process.env.TRADIER_ACCOUNT_ID ?? "me");
 
   const posRes = await fetch(`${baseUrl}/accounts/${accountId}/positions`, {
     headers: { Authorization: `Bearer ${apiToken}`, Accept: "application/json" },
