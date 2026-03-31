@@ -37,64 +37,66 @@ function saveHistory(tab: string, messages: StoredMessage[]) {
 }
 
 // ─── Transcript polling ───────────────────────────────────────────────
-async function waitForReply(sessionKey: string, afterMs: number, maxWaitMs = 28000): Promise<string | null> {
+// Extract assistant text from OpenClaw JSONL format
+// Actual format: {"type":"message","message":{"role":"assistant","content":[{"type":"text","text":"..."}],"timestamp":"..."}}
+function extractAssistantText(entry: Record<string, unknown>): string | null {
+  // Check nested message format (primary OpenClaw format)
+  const msg = entry.message as Record<string, unknown> | undefined;
+  const role    = (msg?.role ?? entry.role) as string | undefined;
+  const content = msg?.content ?? entry.content;
+  if (role !== "assistant") return null;
+  if (typeof content === "string") return content || null;
+  if (Array.isArray(content)) {
+    const t = (content as {type?:string;text?:string}[])
+      .filter(x => x.type === "text").map(x => x.text ?? "").join("");
+    return t || null;
+  }
+  return null;
+}
+
+async function waitForReply(_sessionKey: string, afterMs: number, maxWaitMs = 28000): Promise<string | null> {
   const start    = Date.now();
-  const interval = 1500;
+  const interval = 1800;
 
   while (Date.now() - start < maxWaitMs) {
     await new Promise(r => setTimeout(r, interval));
     try {
-      // List sessions to find our benadmin session transcript path
+      // Find most recently modified transcript (hooks always create/update the latest)
+      const lsRes = await fetch(`${KOWALSKI_GW_URL}/tools/invoke`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${KOWALSKI_GW_TOKEN}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ tool: "exec", args: { command: "ls -t /root/.openclaw/agents/main/sessions/*.jsonl 2>/dev/null | head -1" } }),
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!lsRes.ok) continue;
+      const lsData = await lsRes.json() as { ok: boolean; result?: { content?: {type:string;text:string}[] } };
+      const path   = lsData?.result?.content?.[0]?.text?.trim();
+      if (!path) continue;
+
+      // Read transcript
       const r = await fetch(`${KOWALSKI_GW_URL}/tools/invoke`, {
         method: "POST",
-        headers: {
-          "Authorization": `Bearer ${KOWALSKI_GW_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ tool: "sessions_list", args: {}, sessionKey }),
+        headers: { "Authorization": `Bearer ${KOWALSKI_GW_TOKEN}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ tool: "read", args: { file: path, limit: 30 } }),
         signal: AbortSignal.timeout(6000),
       });
       if (!r.ok) continue;
 
-      const data = await r.json() as {
-        ok: boolean;
-        result?: { details?: { sessions?: { key: string; transcriptPath?: string; status?: string; updatedAt?: number }[] } };
-      };
-
-      const sessions = data?.result?.details?.sessions ?? [];
-      const our = sessions.find(s => s.key === `agent:main:${sessionKey}` || s.key.includes(sessionKey));
-      if (!our?.transcriptPath) continue;
-      if (our.status === "running") continue; // still processing
-
-      // Read the transcript
-      const tr = await fetch(`${KOWALSKI_GW_URL}/tools/invoke`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${KOWALSKI_GW_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ tool: "read", args: { file: our.transcriptPath, limit: 10 } }),
-        signal: AbortSignal.timeout(6000),
-      });
-      if (!tr.ok) continue;
-
-      const td   = await tr.json() as { ok: boolean; result?: { content?: { type: string; text: string }[] } };
-      const text = td?.result?.content?.[0]?.text ?? "";
+      const data  = await r.json() as { ok: boolean; result?: { content?: {type:string;text:string}[] } };
+      const text  = data?.result?.content?.[0]?.text ?? "";
       const lines = text.split("\n").filter(Boolean);
 
       for (let i = lines.length - 1; i >= 0; i--) {
         try {
-          const entry = JSON.parse(lines[i]) as { role?: string; content?: unknown; timestamp?: number };
-          const ts    = entry.timestamp ?? 0;
-          if (entry.role === "assistant" && (ts === 0 || ts > afterMs)) {
-            const c = entry.content;
-            if (typeof c === "string") return c;
-            if (Array.isArray(c)) {
-              const t = c.filter((x: {type?:string}) => x.type === "text").map((x: {text?:string}) => x.text ?? "").join("");
-              if (t) return t;
-            }
-          }
-        } catch { /* skip */ }
+          const entry  = JSON.parse(lines[i]) as Record<string, unknown>;
+          // Timestamp is in the nested message object
+          const msg    = entry.message as Record<string, unknown> | undefined;
+          const rawTs  = (msg?.timestamp ?? entry.timestamp) as string | number | undefined;
+          const ts     = rawTs ? (typeof rawTs === "number" ? rawTs : new Date(rawTs as string).getTime()) : 0;
+          if (ts !== 0 && ts < afterMs) continue;
+          const text = extractAssistantText(entry);
+          if (text) return text;
+        } catch { /* skip malformed */ }
       }
     } catch { /* keep polling */ }
   }
