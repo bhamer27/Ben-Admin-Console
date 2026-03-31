@@ -28,9 +28,9 @@ export default function Login() {
         <div className="bg-card/50 backdrop-blur-xl border border-border/50 rounded-2xl p-8 shadow-2xl shadow-black/50">
           <div className="flex justify-center mb-6">
             <img
-              src={`${import.meta.env.BASE_URL}images/logo.png`}
+              src={`${import.meta.env.BASE_URL}images/logo-nobg.png`}
               alt="BenAdmin"
-              className="h-32 w-32 rounded-2xl object-cover shadow-xl shadow-primary/30"
+              className="h-32 w-32 object-contain"
               style={{ filter: "brightness(1.8) contrast(1.1) saturate(0.75)" }}
             />
           </div>
