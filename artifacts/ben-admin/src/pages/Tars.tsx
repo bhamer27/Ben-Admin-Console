@@ -101,7 +101,8 @@ export default function Tars() {
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-1.5">Kowalski</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-1.5">Tars
+</h1>
           <p className="text-muted-foreground text-sm sm:text-base">Autonomous options trading via Unusual Whales signals.</p>
           {status && (
             <Badge variant={status.running ? "default" : "destructive"} className="mt-2">
@@ -114,7 +115,6 @@ export default function Tars() {
           <span className="hidden sm:inline">Refresh</span>
         </Button>
       </div>
-
       <DataSection loading={posLoading} error={posError?.message}>
         {/* Metrics row */}
         {metrics && (
