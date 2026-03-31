@@ -8,7 +8,7 @@ import { engineRunning, lastPollAt, alertsProcessed } from "../lib/uwPoller.js";
 const router: IRouter = Router();
 
 // GET /api/trading/positions — open positions
-router.get("/api/trading/positions", async (_req: Request, res: Response) => {
+router.get("/trading/positions", async (_req: Request, res: Response) => {
   try {
     const positions = await db
       .select()
@@ -22,7 +22,7 @@ router.get("/api/trading/positions", async (_req: Request, res: Response) => {
 });
 
 // GET /api/trading/signals — recent signal decisions (limit 50)
-router.get("/api/trading/signals", async (_req: Request, res: Response) => {
+router.get("/trading/signals", async (_req: Request, res: Response) => {
   try {
     const signals = await db
       .select({
@@ -51,7 +51,7 @@ router.get("/api/trading/signals", async (_req: Request, res: Response) => {
 });
 
 // GET /api/trading/metrics — win rate, total P&L, trade count
-router.get("/api/trading/metrics", async (_req: Request, res: Response) => {
+router.get("/trading/metrics", async (_req: Request, res: Response) => {
   try {
     const allPositions = await db.select().from(optionsPositionsTable);
     const closed = allPositions.filter((p) => p.status === "closed");
@@ -88,7 +88,7 @@ router.get("/api/trading/metrics", async (_req: Request, res: Response) => {
 });
 
 // POST /api/trading/positions/:id/close — manual close
-router.post("/api/trading/positions/:id/close", async (req: Request, res: Response) => {
+router.post("/trading/positions/:id/close", async (req: Request, res: Response) => {
   const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid position id" });
@@ -121,7 +121,7 @@ router.post("/api/trading/positions/:id/close", async (req: Request, res: Respon
 });
 
 // GET /api/trading/status — engine status
-router.get("/api/trading/status", async (_req: Request, res: Response) => {
+router.get("/trading/status", async (_req: Request, res: Response) => {
   try {
     const openCount = await db
       .select({ count: sql<number>`count(*)` })

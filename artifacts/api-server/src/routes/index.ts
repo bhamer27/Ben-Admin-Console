@@ -62,5 +62,6 @@ router.use(revooRouter);
 router.use(permitradarRouter);
 router.use(productsRouter);
 router.use(tradingRouter);
+router.use(chatRouter);
 
 export default router;
