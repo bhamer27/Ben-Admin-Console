@@ -33,14 +33,14 @@ export function Sidebar({ user, logout, onNavClick }: SidebarProps) {
 
   return (
     <div className="flex flex-col w-64 h-full bg-sidebar border-r border-sidebar-border relative z-10">
-      <div className="p-6 flex items-center gap-3">
+      <div className="px-5 py-4 flex items-center gap-2.5">
         <img
           src={`${import.meta.env.BASE_URL}images/logo-nobg.png`}
           alt="BenAdmin"
-          className="h-20 w-20 object-contain"
+          className="h-9 w-9 flex-shrink-0 object-contain"
           style={{ filter: "brightness(1.8) contrast(1.1) saturate(0.75)" }}
         />
-        <span className="font-semibold tracking-tight text-sidebar-foreground text-[20px]">BenAdmin</span>
+        <span className="font-semibold text-lg tracking-tight text-sidebar-foreground">BenAdmin</span>
       </div>
       <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
