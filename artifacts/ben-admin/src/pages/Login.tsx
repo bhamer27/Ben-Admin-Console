@@ -30,7 +30,7 @@ export default function Login() {
             <img
               src={`${import.meta.env.BASE_URL}images/logo-nobg.png`}
               alt="BenAdmin"
-              className="h-32 w-32 object-contain"
+              className="h-48 w-48 object-contain"
               style={{ filter: "brightness(1.8) contrast(1.1) saturate(0.75)" }}
             />
           </div>
