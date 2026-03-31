@@ -22,13 +22,8 @@ const PUBLIC_PATHS = new Set([
   "/healthz",
   "/auth/me",
   "/auth/user",
-  "/auth/setup-status",
-  "/auth/claim-admin",
-  "/login",
-  "/callback",
+  "/auth/login",
   "/logout",
-  "/mobile-auth/token-exchange",
-  "/mobile-auth/logout",
   "/chat",
 ]);
 

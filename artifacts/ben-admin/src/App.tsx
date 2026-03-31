@@ -1,4 +1,4 @@
-import { Switch, Route, Router as WouterRouter, Redirect, useSearch } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,7 +9,6 @@ import { Shell } from "@/components/layout/Shell";
 
 import LoadingScreen from "@/pages/LoadingScreen";
 import Login from "@/pages/Login";
-import Setup from "@/pages/Setup";
 import Overview from "@/pages/Overview";
 import Replit from "@/pages/Replit";
 import Stripe from "@/pages/Stripe";
@@ -45,30 +44,12 @@ function ProtectedRoutes() {
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
-  const search = useSearch();
-  const params = new URLSearchParams(search);
-  const isSetupPending = params.get("setup") === "pending";
 
   if (isLoading) {
     return <LoadingScreen />;
   }
 
-  if (isSetupPending) {
-    const token = params.get("token") ?? "";
-    const uid = params.get("uid") ?? "";
-    return (
-      <Setup
-        token={token}
-        uid={uid}
-        onClaimed={() => {
-          window.location.href = "/";
-        }}
-      />
-    );
-  }
-
   if (!isAuthenticated) {
-    // Unauthenticated: allow /login, redirect everything else to login
     return (
       <Switch>
         <Route path="/login" component={Login} />

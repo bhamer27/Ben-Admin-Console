@@ -3,15 +3,8 @@ import { logger } from "./lib/logger";
 import { startUwPoller } from "./lib/uwPoller.js";
 import { startPositionMonitor } from "./lib/positionMonitor.js";
 
-// Warn at startup if ADMIN_USER_ID is not configured.
-// BenAdmin is a private single-user console — without this, the first user
-// through OIDC can claim admin via the setup flow.
-if (!process.env.ADMIN_USER_ID) {
-  logger.warn(
-    "ADMIN_USER_ID is not set. The first user to authenticate will be able to claim admin ownership. " +
-    "Set ADMIN_USER_ID to your Replit user ID to lock access before the first login. " +
-    "Optionally set SETUP_SECRET to require a passphrase during the claim step.",
-  );
+if (!process.env.ADMIN_PASSWORD) {
+  logger.warn("ADMIN_PASSWORD is not set — login will be rejected for all attempts.");
 }
 
 const rawPort = process.env["PORT"];

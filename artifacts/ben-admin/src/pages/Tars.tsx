@@ -1,6 +1,5 @@
 import { RefreshCw, Activity, DollarSign, Target, BarChart2, Cpu, TrendingUp, TrendingDown, Zap, Clock } from "lucide-react";
 import { MetricCard } from "@/components/MetricCard";
-import { DataSection } from "@/components/DataSection";
 import { useFetch } from "@/lib/useFetch";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -99,7 +98,7 @@ export default function Tars() {
     "/api/trading/metrics",
     { refreshInterval: 30_000 },
   );
-  const { data: positionsData, loading: posLoading, error: posError } = useFetch<{ positions: OptionsPosition[] }>(
+  const { data: positionsData } = useFetch<{ positions: OptionsPosition[] }>(
     "/api/trading/positions",
     { refreshInterval: 30_000 },
   );
@@ -120,8 +119,7 @@ export default function Tars() {
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-1.5">Tars
-</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-1.5">Tars</h1>
           <p className="text-muted-foreground text-sm sm:text-base">Autonomous options trading via Unusual Whales signals.</p>
           {status && (
             <Badge variant={status.running ? "default" : "destructive"} className="mt-2">
@@ -134,7 +132,7 @@ export default function Tars() {
           <span className="hidden sm:inline">Refresh</span>
         </Button>
       </div>
-      <DataSection loading={posLoading} error={posError?.message}>
+      <div className="space-y-4">
         {/* Metrics row */}
         {metrics && (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -192,7 +190,7 @@ export default function Tars() {
             <span className="ml-auto text-xs text-muted-foreground font-mono">{tradierAccount?.accountId ?? "VA1575604"}</span>
           </div>
           {tradierError ? (
-            <div className="px-6 py-5 text-sm text-destructive">{tradierError.message}</div>
+            <div className="px-6 py-5 text-sm text-destructive">{tradierError}</div>
           ) : !tradierAccount ? (
             <div className="px-6 py-5 text-sm text-muted-foreground animate-pulse">Loading account…</div>
           ) : (
@@ -349,7 +347,7 @@ export default function Tars() {
         )}
 
         <Badge variant="outline" className="text-xs">Auto-refreshes every 30s</Badge>
-      </DataSection>
+      </div>
     </div>
   );
 }
