@@ -37,7 +37,7 @@ export function Sidebar({ user, logout, onNavClick }: SidebarProps) {
         <img
           src={`${import.meta.env.BASE_URL}images/logo-nobg.png`}
           alt="BenAdmin"
-          className="h-9 w-9 flex-shrink-0 object-contain"
+          className="h-8 w-8 flex-shrink-0 object-contain"
           style={{ filter: "brightness(1.8) contrast(1.1) saturate(0.75)" }}
         />
         <span className="font-semibold text-lg tracking-tight text-sidebar-foreground">BenAdmin</span>
