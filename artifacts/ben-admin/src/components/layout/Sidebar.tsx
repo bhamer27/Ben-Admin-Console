@@ -40,9 +40,8 @@ export function Sidebar({ user, logout, onNavClick }: SidebarProps) {
           className="h-20 w-20 object-contain"
           style={{ filter: "brightness(1.8) contrast(1.1) saturate(0.75)" }}
         />
-        <span className="font-semibold text-lg tracking-tight text-sidebar-foreground">BenAdmin</span>
+        <span className="font-semibold tracking-tight text-sidebar-foreground text-[20px]">BenAdmin</span>
       </div>
-
       <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = location === item.href;
@@ -67,7 +66,6 @@ export function Sidebar({ user, logout, onNavClick }: SidebarProps) {
           );
         })}
       </nav>
-
       <div className="p-4 border-t border-sidebar-border">
         <div className="flex items-center gap-3 px-2 py-2">
           {user?.profileImageUrl ? (
