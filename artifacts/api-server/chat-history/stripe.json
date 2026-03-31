@@ -1,0 +1,12 @@
+[
+  {
+    "role": "user",
+    "content": "hey",
+    "ts": 1774984870631
+  },
+  {
+    "role": "assistant",
+    "content": "Hey Ben. Current tab: stripe. What do you need?",
+    "ts": 1774984871412
+  }
+]

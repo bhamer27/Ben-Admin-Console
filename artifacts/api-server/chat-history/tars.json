@@ -8,5 +8,15 @@
     "role": "assistant",
     "content": "Got it — I'm on it.",
     "ts": 1774975023712
+  },
+  {
+    "role": "user",
+    "content": "how is the sandbox doing?",
+    "ts": 1774985443147
+  },
+  {
+    "role": "assistant",
+    "content": "Sandbox is running clean but idle.\n\n**Status:**\n- ✅ Polling live (1,400 alerts processed)\n- ✅ Regime detection working (currently Elevated Vol)\n- ✅ Mode B active (scoring + approval)\n- ❌ **Zero trades executed** (totalTaken: 0)\n\n**Why nothing's trading:**\n\nRecent signals are all getting filtered out before scoring:\n- **DTE violations** — TSM, RKLB, GLD all 79 DTE (max is 45)\n- **No-entry windows** — SMH, MSTR hitting open/close 30min blackout\n- **Low OI** — TLT, COIN below 500 contract minimum\n- **DTE < 7** — QQQ expiring today\n\nThis is correct behavior — the filters are working. But it means the UW flow data right now doesn't have any trades that pass your entry criteria.\n\n**What to check:**\n1. Are the scoring weights tuned? (TARS.md has `[DECIDE]` placeholders)\n2. Is the regime detection accurate? (VIX + moving averages calibrated?)\n3. Want me to loosen DTE or OI filters to let something trade, or keep the fortress?\n\nWhat's the actual issue you're seeing?",
+    "ts": 1774985447878
   }
 ]
