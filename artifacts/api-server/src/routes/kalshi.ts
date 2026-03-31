@@ -415,3 +415,20 @@ router.get("/kalshi/trades", async (_req: Request, res: Response) => {
 });
 
 export default router;
+
+// ─── Kalshi Engine (local) ─────────────────────────────────────────────────────
+const KALSHI_ENGINE_URL = process.env.KALSHI_ENGINE_URL ?? "http://167.71.108.57:7656";
+
+router.get("/kalshi/engine/status", async (_req: Request, res: Response) => {
+  try {
+    const r = await fetch(`${KALSHI_ENGINE_URL}/api/kalshi/status`, { signal: AbortSignal.timeout(5000) });
+    res.json(await r.json());
+  } catch { res.json({ running: false, error: "engine unreachable" }); }
+});
+
+router.get("/kalshi/engine/opportunities", async (_req: Request, res: Response) => {
+  try {
+    const r = await fetch(`${KALSHI_ENGINE_URL}/api/kalshi/opportunities`, { signal: AbortSignal.timeout(5000) });
+    res.json(await r.json());
+  } catch { res.json({ opportunities: [] }); }
+});
