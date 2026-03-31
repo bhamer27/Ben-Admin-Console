@@ -147,7 +147,7 @@ export default function Overview() {
             { name: "Stripe", ok: stripe.configured && !stripe.error, loading: stripe.loading },
             { name: "Replit", ok: replit.configured && !replit.error, loading: replit.loading },
             { name: "Kalshi", ok: kalshi.configured && !kalshi.error, loading: kalshi.loading },
-            { name: "Tradier", ok: tradier.configured && !tradier.error, loading: tradier.loading },
+            { name: "Tars", ok: tradier.configured && !tradier.error, loading: tradier.loading },
             { name: "Public.com", ok: publicCom.configured && !publicCom.error, loading: publicCom.loading },
           ].map(({ name, ok, loading }) => (
             <div key={name} className="flex items-center gap-2 min-w-0">
