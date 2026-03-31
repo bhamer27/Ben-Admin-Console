@@ -61,6 +61,21 @@ interface SignalDecision {
   expiry: string | null;
 }
 
+interface TradierPosition {
+  symbol: string;
+  quantity: number;
+  cost_basis: number;
+  date_acquired: string;
+}
+
+interface TradierAccount {
+  equity: number | null;
+  buyingPower: number | null;
+  accountType: string;
+  accountId: string;
+  positions: TradierPosition[];
+}
+
 function fmtMoney(val: number): string {
   const prefix = val < 0 ? "-" : "";
   return `${prefix}$${Math.abs(val).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -91,6 +106,10 @@ export default function Tars() {
   const { data: signalsData } = useFetch<{ signals: SignalDecision[] }>(
     "/api/trading/signals",
     { refreshInterval: 30_000 },
+  );
+  const { data: tradierAccount, error: tradierError } = useFetch<TradierAccount>(
+    "/api/trading/tradier-account",
+    { refreshInterval: 60_000 },
   );
 
   const positions = positionsData?.positions ?? [];
@@ -164,6 +183,50 @@ export default function Tars() {
             </div>
           </div>
         )}
+
+        {/* Tradier Sandbox Account */}
+        <div className="rounded-xl border border-border bg-card">
+          <div className="px-4 sm:px-6 py-4 border-b border-border flex items-center gap-2">
+            <BarChart2 className="h-4 w-4 text-muted-foreground" />
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Tradier Sandbox Account</h2>
+            <span className="ml-auto text-xs text-muted-foreground font-mono">{tradierAccount?.accountId ?? "VA1575604"}</span>
+          </div>
+          {tradierError ? (
+            <div className="px-6 py-5 text-sm text-destructive">{tradierError.message}</div>
+          ) : !tradierAccount ? (
+            <div className="px-6 py-5 text-sm text-muted-foreground animate-pulse">Loading account…</div>
+          ) : (
+            <div className="px-4 sm:px-6 py-4 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg bg-secondary/40 px-4 py-3">
+                  <p className="text-xs text-muted-foreground mb-1">Equity</p>
+                  <p className="text-lg font-semibold font-mono">
+                    {tradierAccount.equity != null ? fmtMoney(tradierAccount.equity) : "—"}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-secondary/40 px-4 py-3">
+                  <p className="text-xs text-muted-foreground mb-1">Buying Power</p>
+                  <p className="text-lg font-semibold font-mono">
+                    {tradierAccount.buyingPower != null ? fmtMoney(tradierAccount.buyingPower) : "—"}
+                  </p>
+                </div>
+              </div>
+              {tradierAccount.positions.length > 0 ? (
+                <div className="divide-y divide-border rounded-lg border border-border overflow-hidden">
+                  {tradierAccount.positions.map((pos) => (
+                    <div key={pos.symbol} className="px-4 py-2.5 flex items-center justify-between gap-3 text-sm hover:bg-secondary/30 transition-colors">
+                      <span className="font-mono font-medium text-xs">{pos.symbol}</span>
+                      <span className="text-muted-foreground">{pos.quantity} × ${(pos.cost_basis / Math.max(pos.quantity, 1)).toFixed(2)}</span>
+                      <span className="font-mono text-right">{fmtMoney(pos.cost_basis)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">No open positions in sandbox account.</p>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Open Positions */}
         <div className="rounded-xl border border-border bg-card">

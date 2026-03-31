@@ -1,0 +1,12 @@
+[
+  {
+    "role": "user",
+    "content": "why is this not working?",
+    "ts": 1774974994758
+  },
+  {
+    "role": "assistant",
+    "content": "Got it — I'm on it.",
+    "ts": 1774975023712
+  }
+]

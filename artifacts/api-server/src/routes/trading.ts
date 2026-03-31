@@ -7,6 +7,69 @@ import { engineRunning, lastPollAt, alertsProcessed } from "../lib/uwPoller.js";
 
 const router: IRouter = Router();
 
+// ── Tradier sandbox helpers ───────────────────────────────────────────────────
+function getTarsToken(): string | null {
+  return process.env.TARS_TRADIER_API_TOKEN ?? null;
+}
+function getTarsAccountId(): string {
+  return process.env.TARS_TRADIER_ACCOUNT_ID ?? "VA1575604";
+}
+const SANDBOX_BASE = "https://sandbox.tradier.com/v1";
+
+async function tradierSandboxGet(path: string): Promise<unknown> {
+  const token = getTarsToken();
+  if (!token) throw new Error("TARS_TRADIER_API_TOKEN not set");
+  const res = await fetch(`${SANDBOX_BASE}${path}`, {
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    signal: AbortSignal.timeout(12_000),
+  });
+  if (!res.ok) throw new Error(`Tradier sandbox ${path}: HTTP ${res.status}`);
+  return res.json();
+}
+
+// GET /api/trading/tradier-account — sandbox account balance + positions
+router.get("/trading/tradier-account", async (_req: Request, res: Response) => {
+  const token = getTarsToken();
+  if (!token) {
+    res.status(503).json({ error: "TARS_TRADIER_API_TOKEN not configured" });
+    return;
+  }
+  const accountId = getTarsAccountId();
+
+  try {
+    const [balData, posData] = await Promise.all([
+      tradierSandboxGet(`/accounts/${accountId}/balances`) as Promise<{
+        balances?: {
+          equity?: number;
+          cash?: { cash_available?: number; total_equity?: number };
+          margin?: { stock_buying_power?: number; option_buying_power?: number; total_equity?: number };
+          total_equity?: number;
+          account_type?: string;
+        };
+      }>,
+      tradierSandboxGet(`/accounts/${accountId}/positions`) as Promise<{
+        positions?: {
+          position?: {
+            symbol: string; quantity: number; cost_basis: number; date_acquired: string;
+          }[] | { symbol: string; quantity: number; cost_basis: number; date_acquired: string };
+        } | "null";
+      }>,
+    ]);
+
+    const bal = balData.balances;
+    const equity = bal?.total_equity ?? bal?.margin?.total_equity ?? bal?.cash?.total_equity ?? null;
+    const buyingPower = bal?.margin?.option_buying_power ?? bal?.margin?.stock_buying_power ?? bal?.cash?.cash_available ?? null;
+    const accountType = bal?.account_type ?? "unknown";
+
+    const rawPos = posData.positions === "null" ? undefined : posData.positions?.position;
+    const positions = rawPos ? (Array.isArray(rawPos) ? rawPos : [rawPos]) : [];
+
+    res.json({ equity, buyingPower, accountType, accountId, positions });
+  } catch (err) {
+    res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
 // GET /api/trading/positions — open positions
 router.get("/trading/positions", async (_req: Request, res: Response) => {
   try {
