@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, X, Bot, Loader2 } from "lucide-react";
+import { Send, X, Bot, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -19,21 +19,38 @@ interface ChatSidebarProps {
 
 export function ChatSidebar({ tab, tabData, onClose }: ChatSidebarProps) {
   const tabLabel = tab.charAt(0).toUpperCase() + tab.slice(1);
-  const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", content: `On the **${tabLabel}** tab. What do you want to know or change?` },
-  ]);
-  const [input, setInput]       = useState("");
+  const [messages, setMessages]   = useState<Message[]>([]);
+  const [input, setInput]         = useState("");
   const [streaming, setStreaming] = useState(false);
+  const [loading, setLoading]     = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Load persisted history when tab changes
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/chat/history?tab=${encodeURIComponent(tab)}`)
+      .then(r => r.json())
+      .then((history: Message[]) => {
+        if (history.length > 0) {
+          setMessages(history);
+        } else {
+          setMessages([{ role: "assistant", content: `On the **${tabLabel}** tab. What do you want to know or change?` }]);
+        }
+      })
+      .catch(() => {
+        setMessages([{ role: "assistant", content: `On the **${tabLabel}** tab. What do you want to know or change?` }]);
+      })
+      .finally(() => setLoading(false));
+  }, [tab, tabLabel]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streaming]);
 
-  useEffect(() => {
-    const label = tab.charAt(0).toUpperCase() + tab.slice(1);
-    setMessages([{ role: "assistant", content: `On the **${label}** tab. What do you want to know or change?` }]);
-  }, [tab]);
+  const clearHistory = async () => {
+    await fetch(`/api/chat/history?tab=${encodeURIComponent(tab)}`, { method: "DELETE" });
+    setMessages([{ role: "assistant", content: `On the **${tabLabel}** tab. What do you want to know or change?` }]);
+  };
 
   const send = async () => {
     if (!input.trim() || streaming) return;
@@ -106,6 +123,7 @@ export function ChatSidebar({ tab, tabData, onClose }: ChatSidebarProps) {
 
   return (
     <div className="flex flex-col h-full border-l border-border bg-card/30">
+      {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
         <div className="flex items-center gap-2">
           <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center">
@@ -114,44 +132,58 @@ export function ChatSidebar({ tab, tabData, onClose }: ChatSidebarProps) {
           <span className="text-sm font-semibold">Kowalski</span>
           <Badge variant="outline" className="text-xs capitalize">{tab}</Badge>
         </div>
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
-          <X className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+            onClick={clearHistory} title="Clear history">
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
+      {/* Messages */}
       <ScrollArea className="flex-1 px-4 py-4">
-        <div className="flex flex-col gap-4">
-          {messages.map((m, i) => (
-            <div key={i} className={cn("flex gap-2.5", m.role === "user" ? "flex-row-reverse" : "flex-row")}>
-              {m.role === "assistant" && (
-                <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                  <Bot className="h-3.5 w-3.5 text-primary" />
+        {loading ? (
+          <div className="flex items-center justify-center h-20">
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {messages.map((m, i) => (
+              <div key={i} className={cn("flex gap-2.5", m.role === "user" ? "flex-row-reverse" : "flex-row")}>
+                {m.role === "assistant" && (
+                  <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <Bot className="h-3.5 w-3.5 text-primary" />
+                  </div>
+                )}
+                <div className={cn(
+                  "max-w-[85%] rounded-xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words",
+                  m.role === "user"
+                    ? "bg-primary text-primary-foreground rounded-tr-sm"
+                    : "bg-muted/60 text-foreground rounded-tl-sm border border-border/50",
+                )}>
+                  {m.content
+                    ? renderContent(m.content)
+                    : m.role === "assistant" && streaming
+                      ? <span className="inline-block w-1.5 h-4 bg-foreground/40 animate-pulse rounded-sm" />
+                      : null}
                 </div>
-              )}
-              <div className={cn(
-                "max-w-[85%] rounded-xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words",
-                m.role === "user"
-                  ? "bg-primary text-primary-foreground rounded-tr-sm"
-                  : "bg-muted/60 text-foreground rounded-tl-sm border border-border/50",
-              )}>
-                {m.content
-                  ? renderContent(m.content)
-                  : m.role === "assistant" && streaming
-                    ? <span className="inline-block w-1.5 h-4 bg-foreground/40 animate-pulse rounded-sm" />
-                    : null}
               </div>
-            </div>
-          ))}
-          {streaming && !messages[messages.length - 1]?.content && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground pl-8">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              Kowalski is thinking...
-            </div>
-          )}
-          <div ref={bottomRef} />
-        </div>
+            ))}
+            {streaming && !messages[messages.length - 1]?.content && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground pl-8">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Kowalski is thinking...
+              </div>
+            )}
+            <div ref={bottomRef} />
+          </div>
+        )}
       </ScrollArea>
 
+      {/* Input */}
       <div className="px-4 pb-4 pt-2 border-t border-border shrink-0">
         <div className="flex gap-2 items-end">
           <Textarea
